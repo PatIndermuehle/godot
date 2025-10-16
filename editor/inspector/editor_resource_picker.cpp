@@ -53,8 +53,23 @@ static bool _has_sub_resources(const Ref<Resource> &p_res) {
 	List<PropertyInfo> property_list;
 	p_res->get_property_list(&property_list);
 	for (const PropertyInfo &p : property_list) {
-		if (p.type == Variant::OBJECT && p.hint == PROPERTY_HINT_RESOURCE_TYPE && !(p.usage & PROPERTY_USAGE_NEVER_DUPLICATE) && p_res->get(p.name).get_validated_object()) {
-			return true;
+		if (!(p.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
+			if (p.type == Variant::OBJECT && p.hint == PROPERTY_HINT_RESOURCE_TYPE && p_res->get(p.name).get_validated_object()) {
+				return true;
+			}
+
+			Variant gotten_value = p_res->getvar(p.name);
+
+			if (gotten_value.is_array()) {
+				Array gotten_array = gotten_value;
+
+				for (int i = 0; i < gotten_array.size(); i++) {
+					Ref<Resource> item_res = gotten_array[i];
+					if (item_res.is_valid() && !item_res->get_path().is_empty()) {
+						return true;
+					}
+				}
+			}
 		}
 	}
 	return false;
@@ -1122,26 +1137,58 @@ void EditorResourcePicker::_gather_resources_to_duplicate(const Ref<Resource> p_
 	p_resource->get_property_list(&plist);
 
 	for (const PropertyInfo &E : plist) {
-		if (!(E.usage & PROPERTY_USAGE_STORAGE) || E.type != Variant::OBJECT || E.hint != PROPERTY_HINT_RESOURCE_TYPE) {
-			continue;
-		}
+		if (E.usage & PROPERTY_USAGE_STORAGE) {
+			if (E.type == Variant::OBJECT && E.hint == PROPERTY_HINT_RESOURCE_TYPE) {
+				Ref<Resource> res = p_resource->get(E.name);
+				if (!res.is_null()) {
+					TreeItem *child = p_item->create_child();
+					_gather_resources_to_duplicate(res, child, E.name);
 
-		Ref<Resource> res = p_resource->get(E.name);
-		if (res.is_null()) {
-			continue;
-		}
+					meta = child->get_metadata(0);
+					// Remember property name.
+					meta.append(E.name);
 
-		TreeItem *child = p_item->create_child();
-		_gather_resources_to_duplicate(res, child, E.name);
+					if ((E.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
+						// The resource can't be duplicated, but make it appear on the list anyway.
+						child->set_checked(0, false);
+						child->set_editable(0, false);
+					}
+				}
+			}
 
-		meta = child->get_metadata(0);
-		// Remember property name.
-		meta.append(E.name);
+			if (E.type == Variant::ARRAY) {
+				Variant gotten_value = p_resource->getvar(E.name);
 
-		if ((E.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
-			// The resource can't be duplicated, but make it appear on the list anyway.
-			child->set_checked(0, false);
-			child->set_editable(0, false);
+				if (gotten_value.is_array()) {
+					Array gotten_array = gotten_value;
+
+					for (int i = 0; i < gotten_array.size(); i++) {
+						Ref<Resource> item_res = gotten_array[i];
+						if (item_res.is_valid() && !item_res->get_path().is_empty()) {
+
+							TreeItem *child = p_item->create_child();
+							String array_index_append;
+							array_index_append += "[";
+							array_index_append += String::num(i,0).ptr();
+							array_index_append += "]";
+
+							_gather_resources_to_duplicate(item_res, child, E.name + array_index_append);
+
+							meta = child->get_metadata(0);
+							// Remember property name.
+							meta.append(E.name);
+							meta.append(Variant::ARRAY);
+							meta.append(i);
+
+							if ((E.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
+								// The resource can't be duplicated, but make it appear on the list anyway.
+								child->set_checked(0, false);
+								child->set_editable(0, false);
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -1161,7 +1208,19 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 		if (meta.size() == 1) { // Root.
 			edited_resource = unique_resource;
 			_resource_changed();
-		} else {
+		} else if (meta.size() > 2) {
+			Variant::Type var_type = meta[2];
+			int key_index = meta[3];
+
+			// TODO: do the same for dictionaries too
+			if (var_type == Variant::ARRAY) {
+				Array parent_meta = item->get_parent()->get_metadata(0);
+				Ref<Resource> parent = parent_meta[0];
+				Array parent_resource_array = parent->get(meta[1]);
+				parent_resource_array.set(key_index, unique_resource);
+			}
+		}
+		else {
 			Array parent_meta = item->get_parent()->get_metadata(0);
 			Ref<Resource> parent = parent_meta[0];
 			parent->set(meta[1], unique_resource);
