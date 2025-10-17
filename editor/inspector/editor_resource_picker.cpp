@@ -396,7 +396,7 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 			Ref<Resource> unique_resource = edited_resource->duplicate();
 			ERR_FAIL_COND(unique_resource.is_null()); // duplicate() may fail.
 
-			unique_resource->set_path(_get_owner_path() + "::" + unique_resource->generate_scene_unique_id()); // Assign a base path for built-in Resources.
+			unique_resource->set_path(_get_owner_path(this) + "::" + unique_resource->generate_scene_unique_id()); // Assign a base path for built-in Resources.
 			_resource_made_unique(edited_resource->get_path(), unique_resource->get_path());
 
 			edited_resource = unique_resource;
@@ -532,7 +532,7 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 
 			Resource *resp = Object::cast_to<Resource>(obj);
 			ERR_BREAK(!resp);
-			resp->set_path(_get_owner_path() + "::" + resp->generate_scene_unique_id()); // Assign a base path for built-in Resources.
+			resp->set_path(_get_owner_path(this) + "::" + resp->generate_scene_unique_id()); // Assign a base path for built-in Resources.
 
 			EditorNode::get_editor_data().instantiate_object_properties(obj);
 
@@ -627,9 +627,13 @@ void EditorResourcePicker::_button_input(const Ref<InputEvent> &p_event) {
 	}
 }
 
-String EditorResourcePicker::_get_owner_path() const {
-	EditorProperty *property = Object::cast_to<EditorProperty>(get_parent());
+String EditorResourcePicker::_get_owner_path(Node *p_node) const {
+	Node *parent_node = p_node->get_parent();
+	EditorProperty *property = Object::cast_to<EditorProperty>(parent_node);
 	if (!property) {
+		if (parent_node) {
+			return _get_owner_path(parent_node);
+		}
 		return String();
 	}
 	Object *obj = property->get_edited_object();
@@ -646,10 +650,14 @@ String EditorResourcePicker::_get_owner_path() const {
 	}
 
 	Resource *res = Object::cast_to<Resource>(obj);
-	if (res && !res->is_built_in()) {
-		return res->get_path();
+	if (res) {
+		if (!res->is_built_in()) {
+			return res->get_path();
+		} else {
+			return _get_owner_path(property);
+		}
 	}
-	// TODO: It would be nice to handle deeper Resource nesting.
+	
 	return String();
 }
 
@@ -1180,7 +1188,7 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 		ERR_FAIL_COND(unique_resource.is_null()); // duplicate() may fail.
 		meta[0] = unique_resource;
 
-		unique_resource->set_path(_get_owner_path() + "::" + unique_resource->generate_scene_unique_id()); // Assign a base path for built-in Resources.
+		unique_resource->set_path(_get_owner_path(this) + "::" + unique_resource->generate_scene_unique_id()); // Assign a base path for built-in Resources.
 		_resource_made_unique(res->get_path(), unique_resource->get_path());
 
 		if (meta.size() == 1) { // Root.
