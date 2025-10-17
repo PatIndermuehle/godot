@@ -735,6 +735,9 @@ class EditorInspector : public ScrollContainer {
 	bool _resource_properties_matches(const Ref<Resource> &p_resource, const String &p_filter);
 
 	void _resource_selected(const String &p_path, Ref<Resource> p_resource);
+	void _new_resource_created(const String &p_class_name, const String &p_path);
+	void _resource_made_unique(const String &p_source_path, const String &p_target_path);
+	void _resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource);
 	void _property_selected(const String &p_path, int p_focusable);
 	void _object_id_selected(const String &p_path, ObjectID p_id);
 

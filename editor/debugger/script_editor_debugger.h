@@ -258,6 +258,9 @@ private:
 
 	void _method_changed(Object *p_base, const StringName &p_name, const Variant **p_args, int p_argcount);
 	void _property_changed(Object *p_base, const StringName &p_property, const Variant &p_value);
+	void _resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource);
+	void _new_resource_created(const String &p_class_name, const String &p_path);
+	void _resource_made_unique(const String &p_source_path, const String &p_target_path);
 
 	void _error_activated();
 	void _error_selected();

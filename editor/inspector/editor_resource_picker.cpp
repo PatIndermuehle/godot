@@ -150,6 +150,19 @@ void EditorResourcePicker::_resource_changed() {
 	_update_resource();
 }
 
+
+void EditorResourcePicker::_new_resource_created(const String &p_class_name, const String &p_path) {
+	emit_signal(SNAME("new_resource_created"), p_class_name, p_path);
+}
+
+void EditorResourcePicker::_resource_made_unique(const String &p_source_path, const String &p_target_path) {
+	emit_signal(SNAME("resource_made_unique"), p_source_path, p_target_path);
+}
+
+void EditorResourcePicker::_resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource) {
+	emit_signal(SNAME("resource_sub_resource_changed"), p_resource, p_property, p_sub_resource);
+}
+
 void EditorResourcePicker::_file_selected(const String &p_path) {
 	Ref<Resource> loaded_resource = ResourceLoader::load(p_path);
 	ERR_FAIL_COND_MSG(loaded_resource.is_null(), "Cannot load resource from path '" + p_path + "'.");
@@ -383,6 +396,9 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 			Ref<Resource> unique_resource = edited_resource->duplicate();
 			ERR_FAIL_COND(unique_resource.is_null()); // duplicate() may fail.
 
+			unique_resource->set_path(_get_owner_path() + "::" + unique_resource->generate_scene_unique_id()); // Assign a base path for built-in Resources.
+			_resource_made_unique(edited_resource->get_path(), unique_resource->get_path());
+
 			edited_resource = unique_resource;
 			_resource_changed();
 		} break;
@@ -503,6 +519,8 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 			Variant obj;
 
 			if (ScriptServer::is_global_class(intype)) {
+				// TODO: am I allowed to have a dependency to EditorNode here ?
+				// I just need EditorData to initialize the new object just like in the EditorResourcePicker
 				obj = EditorNode::get_editor_data().script_class_instance(intype);
 			} else {
 				obj = ClassDB::instantiate(intype);
@@ -521,6 +539,7 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 			// Prevent freeing of the object until the end of the update of the resource (GH-88286).
 			Ref<Resource> old_edited_resource = edited_resource;
 			edited_resource = Ref<Resource>(resp);
+			_new_resource_created(intype, resp->get_path());
 			_resource_changed();
 		} break;
 	}
@@ -912,6 +931,9 @@ void EditorResourcePicker::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("resource_selected", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), PropertyInfo(Variant::BOOL, "inspect")));
 	ADD_SIGNAL(MethodInfo("resource_changed", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
+	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::STRING, "class_name"), PropertyInfo(Variant::STRING, "path")));
+	ADD_SIGNAL(MethodInfo("resource_made_unique", PropertyInfo(Variant::STRING, "source_path"), PropertyInfo(Variant::STRING, "target_path")));
+	ADD_SIGNAL(MethodInfo("resource_sub_resource_changed", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), PropertyInfo(Variant::STRING, "property"), PropertyInfo(Variant::OBJECT, "sub_resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
 }
 
 void EditorResourcePicker::_notification(int p_what) {
@@ -1158,6 +1180,9 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 		ERR_FAIL_COND(unique_resource.is_null()); // duplicate() may fail.
 		meta[0] = unique_resource;
 
+		unique_resource->set_path(_get_owner_path() + "::" + unique_resource->generate_scene_unique_id()); // Assign a base path for built-in Resources.
+		_resource_made_unique(res->get_path(), unique_resource->get_path());
+
 		if (meta.size() == 1) { // Root.
 			edited_resource = unique_resource;
 			_resource_changed();
@@ -1165,6 +1190,7 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 			Array parent_meta = item->get_parent()->get_metadata(0);
 			Ref<Resource> parent = parent_meta[0];
 			parent->set(meta[1], unique_resource);
+			_resource_sub_resource_changed(parent, meta[1], unique_resource);
 		}
 	}
 }

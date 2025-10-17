@@ -712,6 +712,9 @@ class EditorPropertyResource : public EditorProperty {
 
 	void _resource_selected(const Ref<Resource> &p_resource, bool p_inspect);
 	void _resource_changed(const Ref<Resource> &p_resource);
+	void _new_resource_created(const String &p_class_name, const String &p_path);
+	void _resource_made_unique(const String &p_source_path, const String &p_target_path);
+	void _resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource);
 
 	void _viewport_selected(const NodePath &p_path);
 

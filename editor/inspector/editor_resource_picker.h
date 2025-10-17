@@ -90,6 +90,9 @@ class EditorResourcePicker : public HBoxContainer {
 
 	void _resource_selected();
 	void _resource_changed();
+	void _new_resource_created(const String &p_class_name, const String &p_path);
+	void _resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource);
+	void _resource_made_unique(const String &p_source_path, const String &p_target_path);
 	void _file_selected(const String &p_path);
 
 	void _resource_saved(Object *p_resource);

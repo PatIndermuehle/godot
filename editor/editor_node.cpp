@@ -4981,6 +4981,18 @@ void EditorNode::_instantiate_request(const Vector<String> &p_files) {
 	request_instantiate_scenes(p_files);
 }
 
+void EditorNode::_new_resource_created(const String &p_class_name, const String &p_path) {
+	EditorDebuggerNode::_new_resource_created(p_class_name, p_path);
+}
+
+void EditorNode::_resource_made_unique(const String &p_source_path, const String &p_target_path) {
+	EditorDebuggerNode::_resource_made_unique(p_source_path, p_target_path);
+}
+
+void EditorNode::_resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource) {
+	EditorDebuggerNode::_resource_sub_resource_changed(p_resource, p_property, p_sub_resource);
+}
+
 void EditorNode::_close_messages() {
 	old_split_ofs = center_split->get_split_offset();
 	center_split->set_split_offset(0);
@@ -8452,6 +8464,9 @@ EditorNode::EditorNode() {
 
 	memnew(InspectorDock(editor_data));
 	editor_dock_manager->add_dock(InspectorDock::get_singleton());
+	InspectorDock::get_singleton()->connect("new_resource_created", callable_mp(this, &EditorNode::_new_resource_created));
+	InspectorDock::get_singleton()->connect("resource_made_unique", callable_mp(this, &EditorNode::_resource_made_unique));
+	InspectorDock::get_singleton()->connect("resource_sub_resource_changed", callable_mp(this, &EditorNode::_resource_sub_resource_changed));
 
 	memnew(NodeDock);
 	editor_dock_manager->add_dock(NodeDock::get_singleton());

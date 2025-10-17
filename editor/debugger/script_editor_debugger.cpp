@@ -1564,6 +1564,21 @@ void ScriptEditorDebugger::_property_changed(Object *p_base, const StringName &p
 	}
 }
 
+void ScriptEditorDebugger::_new_resource_created(const String &p_class_name, const String &p_path) {
+	Array msg = { p_class_name, p_path };
+	_put_msg("scene:live_new_resource_created", msg);
+}
+
+void ScriptEditorDebugger::_resource_made_unique(const String &p_source_path, const String &p_target_path) {
+	Array msg = { p_source_path, p_target_path };
+	_put_msg("scene:live_resource_made_unique", msg);
+}
+
+void ScriptEditorDebugger::_resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource) {
+	Array msg = { p_resource->get_path(), p_property, p_sub_resource->get_path() };
+	_put_msg("scene:live_resource_sub_resource_changed", msg);
+}
+
 bool ScriptEditorDebugger::is_move_to_foreground() const {
 	return move_to_foreground;
 }

@@ -820,6 +820,33 @@ void EditorDebuggerNode::_properties_changed(void *p_ud, Object *p_base, const S
 	});
 }
 
+void EditorDebuggerNode::_new_resource_created(const String &p_class_name, const String &p_path) {
+	if (!singleton) {
+		return;
+	}
+	_for_all(singleton->tabs, [&](ScriptEditorDebugger *dbg) {
+		dbg->_new_resource_created(p_class_name, p_path);
+	});
+}
+
+void EditorDebuggerNode::_resource_made_unique(const String &p_source_path, const String &p_target_path) {
+	if (!singleton) {
+		return;
+	}
+	_for_all(singleton->tabs, [&](ScriptEditorDebugger *dbg) {
+		dbg->_resource_made_unique(p_source_path, p_target_path);
+	});
+}
+
+void EditorDebuggerNode::_resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource) {
+	if (!singleton) {
+		return;
+	}
+	_for_all(singleton->tabs, [&](ScriptEditorDebugger *dbg) {
+		dbg->_resource_sub_resource_changed(p_resource, p_property, p_sub_resource);
+	});
+}
+
 // LiveDebug
 void EditorDebuggerNode::set_live_debugging(bool p_enabled) {
 	_for_all(tabs, [&](ScriptEditorDebugger *dbg) {

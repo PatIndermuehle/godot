@@ -3356,6 +3356,18 @@ void EditorPropertyResource::_resource_changed(const Ref<Resource> &p_resource) 
 	}
 }
 
+void EditorPropertyResource::_new_resource_created(const String &p_class_name, const String &p_path) {
+	emit_signal(SNAME("new_resource_created"), p_class_name, p_path);
+}
+
+void EditorPropertyResource::_resource_made_unique(const String &p_source_path, const String &p_target_path) {
+	emit_signal(SNAME("resource_made_unique"), p_source_path, p_target_path);
+}
+
+void EditorPropertyResource::_resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource) {
+	emit_signal(SNAME("resource_sub_resource_changed"), p_resource, p_property, p_sub_resource);
+}
+
 void EditorPropertyResource::_sub_inspector_property_keyed(const String &p_property, const Variant &p_value, bool p_advance) {
 	// The second parameter could be null, causing the event to fire with less arguments, so use the pointer call which preserves it.
 	const Variant args[3] = { String(get_edited_property()) + ":" + p_property, p_value, p_advance };
@@ -3457,6 +3469,9 @@ void EditorPropertyResource::setup(Object *p_object, const String &p_path, const
 
 	resource_picker->connect("resource_selected", callable_mp(this, &EditorPropertyResource::_resource_selected));
 	resource_picker->connect("resource_changed", callable_mp(this, &EditorPropertyResource::_resource_changed));
+	resource_picker->connect("new_resource_created", callable_mp(this, &EditorPropertyResource::_new_resource_created));
+	resource_picker->connect("resource_made_unique", callable_mp(this, &EditorPropertyResource::_resource_made_unique));
+	resource_picker->connect("resource_sub_resource_changed", callable_mp(this, &EditorPropertyResource::_resource_sub_resource_changed));
 
 	for (int i = 0; i < resource_picker->get_child_count(); i++) {
 		Button *b = Object::cast_to<Button>(resource_picker->get_child(i));
@@ -3491,6 +3506,9 @@ void EditorPropertyResource::update_property() {
 				sub_inspector->connect("property_keyed", callable_mp(this, &EditorPropertyResource::_sub_inspector_property_keyed));
 				sub_inspector->connect("resource_selected", callable_mp(this, &EditorPropertyResource::_sub_inspector_resource_selected));
 				sub_inspector->connect("object_id_selected", callable_mp(this, &EditorPropertyResource::_sub_inspector_object_id_selected));
+				sub_inspector->connect("new_resource_created", callable_mp(this, &EditorPropertyResource::_new_resource_created));
+				sub_inspector->connect("resource_made_unique", callable_mp(this, &EditorPropertyResource::_resource_made_unique));
+				sub_inspector->connect("resource_sub_resource_changed", callable_mp(this, &EditorPropertyResource::_resource_sub_resource_changed));
 				sub_inspector->set_keying(is_keying());
 				sub_inspector->set_read_only(is_read_only());
 				sub_inspector->set_use_folding(is_using_folding());

@@ -46,6 +46,7 @@
 #include "scene/resources/packed_scene.h"
 #include "scene/theme/theme_db.h"
 #include "servers/audio/audio_server.h"
+#include "editor/editor_node.h"
 
 #ifndef PHYSICS_2D_DISABLED
 #include "scene/2d/physics/collision_object_2d.h"
@@ -66,6 +67,7 @@
 
 SceneDebugger::SceneDebugger() {
 	singleton = this;
+	last_received_resource;
 
 #ifdef DEBUG_ENABLED
 	LiveEditor::singleton = memnew(LiveEditor);
@@ -350,6 +352,72 @@ Error SceneDebugger::_msg_live_res_call(const Array &p_args) {
 	return OK;
 }
 
+Error SceneDebugger::_msg_live_new_resource_created(const Array &p_args) {
+	ERR_FAIL_COND_V(p_args.size() < 2, ERR_INVALID_DATA);
+	String class_name = p_args[0];
+	String path = p_args[1];
+
+	// TODO: remove this when done
+	print_line("_msg_live_new_resource_created");
+	print_line(class_name);
+	print_line(path);
+
+	Variant obj;
+	if (ScriptServer::is_global_class(class_name)) {
+		obj = EditorNode::get_editor_data().script_class_instance(class_name);
+	} else {
+		obj = ClassDB::instantiate(class_name);
+	}
+
+	if (!obj) {
+		obj = EditorNode::get_editor_data().instantiate_custom_type(class_name, "Resource");
+	}
+
+	Resource *new_resource = Object::cast_to<Resource>(obj);
+	new_resource->set_path(path, true);
+	EditorNode::get_editor_data().instantiate_object_properties(obj);
+
+	// Prevent freeing of the object
+	last_received_resource = new_resource;
+
+	return OK;
+}
+
+Error SceneDebugger::_msg_live_resource_made_unique(const Array &p_args) {
+	ERR_FAIL_COND_V(p_args.size() < 2, ERR_INVALID_DATA);
+	String source_path = p_args[0];
+	String target_path = p_args[1];
+
+	// TODO: remove this when done
+	print_line("_msg_live_resource_made_unique");
+	print_line(source_path);
+	print_line(target_path);
+
+	Ref<Resource> loaded_resource = ResourceLoader::load(source_path);
+	Ref<Resource> new_unique_resource = loaded_resource->duplicate();
+	new_unique_resource->set_path(target_path);
+
+	// Prevent freeing of the object
+	last_received_resource = new_unique_resource;
+}
+
+Error SceneDebugger::_msg_live_resource_sub_resource_changed(const Array &p_args) {
+	ERR_FAIL_COND_V(p_args.size() < 3, ERR_INVALID_DATA);
+	String resource_path = p_args[0];
+	String property_name = p_args[1];
+	String sub_resource_path = p_args[2];
+
+	// TODO: remove this when done
+	print_line("_msg_live_resource_sub_resource_changed");
+	print_line(resource_path);
+	print_line(property_name);
+	print_line(sub_resource_path);
+
+	Ref<Resource> loaded_resource = ResourceLoader::load(resource_path);
+	Ref<Resource> loaded_sub_resource = ResourceLoader::load(sub_resource_path);
+	loaded_resource->set(property_name, loaded_sub_resource);
+}
+
 Error SceneDebugger::_msg_live_create_node(const Array &p_args) {
 	ERR_FAIL_COND_V(p_args.size() < 3, ERR_INVALID_DATA);
 	LiveEditor::get_singleton()->_create_node_func(p_args[0], p_args[1], p_args[2]);
@@ -568,6 +636,9 @@ void SceneDebugger::_init_message_handlers() {
 	message_handlers["live_res_prop"] = _msg_live_res_prop;
 	message_handlers["live_node_call"] = _msg_live_node_call;
 	message_handlers["live_res_call"] = _msg_live_res_call;
+	message_handlers["live_new_resource_created"] = _msg_live_new_resource_created;
+	message_handlers["live_resource_made_unique"] = _msg_live_resource_made_unique;
+	message_handlers["live_resource_sub_resource_changed"] = _msg_live_resource_sub_resource_changed;
 	message_handlers["live_create_node"] = _msg_live_create_node;
 	message_handlers["live_instantiate_node"] = _msg_live_instantiate_node;
 	message_handlers["live_remove_node"] = _msg_live_remove_node;
