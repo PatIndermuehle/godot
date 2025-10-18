@@ -270,8 +270,8 @@ void EditorPropertyArray::_property_changed(const String &p_property, Variant p_
 }
 
 
-void EditorPropertyArray::_new_resource_created(const String &p_class_name, const String &p_path) {
-	emit_signal(SNAME("new_resource_created"), p_class_name, p_path);
+void EditorPropertyArray::_new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array) {
+	emit_signal(SNAME("new_resource_created"), p_class_name, p_path, p_sub_resources_path_array);
 }
 
 void EditorPropertyArray::_resource_made_unique(const String &p_source_path, const String &p_target_path) {
@@ -1020,8 +1020,8 @@ void EditorPropertyDictionary::_property_changed(const String &p_property, Varia
 	}
 }
 
-void EditorPropertyDictionary::_new_resource_created(const String &p_class_name, const String &p_path) {
-	emit_signal(SNAME("new_resource_created"), p_class_name, p_path);
+void EditorPropertyDictionary::_new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array) {
+	emit_signal(SNAME("new_resource_created"), p_class_name, p_path, p_sub_resources_path_array);
 }
 
 void EditorPropertyDictionary::_resource_made_unique(const String &p_source_path, const String &p_target_path) {

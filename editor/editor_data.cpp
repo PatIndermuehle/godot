@@ -606,6 +606,87 @@ void EditorData::instantiate_object_properties(Object *p_object) {
 	}
 }
 
+void EditorData::instantiate_resource_properties_and_set_sub_resource_path(const Ref<Resource> &p_resource, Array &p_sub_resources_path_array) {
+	ERR_FAIL_NULL(p_resource);
+
+	// Check if any Object-type property should be instantiated.
+	// Also immediately set the path of any sub-resources by using p_sub_resources_path_array
+
+	List<PropertyInfo> pinfo;
+	p_resource->get_property_list(&pinfo);
+
+	for (const PropertyInfo &pi : pinfo) {
+		if (pi.type == Variant::OBJECT && pi.usage & PROPERTY_USAGE_EDITOR_INSTANTIATE_OBJECT) {
+			Object *prop = ClassDB::instantiate(pi.class_name);
+			p_resource->set(pi.name, prop);
+		}
+		Variant found_prop = p_resource->get(pi.name);
+		Ref<Resource> sub_resource = found_prop;
+		if (sub_resource.is_valid() && sub_resource->get_path().is_empty()) {
+			// TODO: check if this is ok
+			sub_resource->set_path(p_sub_resources_path_array.pop_front());
+			instantiate_resource_properties_and_set_sub_resource_path(sub_resource, p_sub_resources_path_array);
+		} else if (found_prop.is_array()) {
+			Array sub_array = found_prop;
+			for (int i = 0; i < sub_array.size(); i++) {
+				Ref<Resource> sub_resource_item = sub_array[i];
+
+				if (sub_resource_item.is_valid() && sub_resource_item->get_path().is_empty()) {
+					// TODO: check if this is ok
+					sub_resource_item->set_path(p_sub_resources_path_array.pop_front());
+					instantiate_resource_properties_and_set_sub_resource_path(sub_resource_item, p_sub_resources_path_array);
+				}
+			}
+		}
+	}
+}
+
+Array EditorData::instantiate_resource_properties(const Ref<Resource> &p_resource, const String &p_owner_path) {
+	Array sub_resource_array;
+
+	ERR_FAIL_NULL_V(p_resource,  sub_resource_array);
+	// Check if any Resource-type property should be instantiated.
+	// Also keep track of the path of any sub-resources
+	List<PropertyInfo> pinfo;
+	p_resource->get_property_list(&pinfo);
+
+	for (const PropertyInfo &pi : pinfo) {
+		if (pi.type == Variant::OBJECT && pi.usage & PROPERTY_USAGE_EDITOR_INSTANTIATE_OBJECT) {
+			Object *prop = ClassDB::instantiate(pi.class_name);
+			p_resource->set(pi.name, prop);
+		}
+
+		Variant found_prop = p_resource->get(pi.name);
+		Ref<Resource> sub_resource = found_prop;
+		if (sub_resource.is_valid() ) {
+			if (sub_resource->get_path().is_empty()) {
+				sub_resource->set_path(p_owner_path + "::" + sub_resource->generate_scene_unique_id());
+			}
+			if (sub_resource->is_built_in()) {
+				sub_resource_array.push_back(sub_resource->get_path());
+				sub_resource_array.append_array(instantiate_resource_properties(sub_resource, p_owner_path));
+			}
+		} else if (found_prop.is_array()) {
+			Array sub_array = found_prop;
+			for (int i = 0; i < sub_array.size(); i++) {
+				Ref<Resource> sub_resource_item = sub_array[i];
+				if (sub_resource_item.is_valid()) {
+					if (sub_resource_item->get_path().is_empty()) {
+						sub_resource_item->set_path(p_owner_path + "::" + sub_resource_item->generate_scene_unique_id());
+					}
+					if (sub_resource_item->is_built_in()) {
+						sub_resource_array.push_back(sub_resource_item->get_path());
+						sub_resource_array.append_array(instantiate_resource_properties(sub_resource_item, p_owner_path));
+					}
+				}
+			}
+		}
+		// TODO: do the same for dictionaries too
+	}
+
+	return sub_resource_array;
+}
+
 int EditorData::add_edited_scene(int p_at_pos) {
 	if (p_at_pos < 0) {
 		p_at_pos = edited_scene.size();

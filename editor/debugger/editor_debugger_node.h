@@ -204,7 +204,7 @@ public:
 	bool match_remote_selection(const TypedArray<uint64_t> &p_ids) const;
 	static void _methods_changed(void *p_ud, Object *p_base, const StringName &p_name, const Variant **p_args, int p_argcount);
 	static void _properties_changed(void *p_ud, Object *p_base, const StringName &p_property, const Variant &p_value);
-	static void _new_resource_created(const String &p_class_name, const String &p_path);
+	static void _new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array);
 	static void _resource_made_unique(const String &p_source_path, const String &p_target_path);
 	static void _resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource);
 

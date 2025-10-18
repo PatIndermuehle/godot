@@ -820,12 +820,12 @@ void EditorDebuggerNode::_properties_changed(void *p_ud, Object *p_base, const S
 	});
 }
 
-void EditorDebuggerNode::_new_resource_created(const String &p_class_name, const String &p_path) {
+void EditorDebuggerNode::_new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array) {
 	if (!singleton) {
 		return;
 	}
 	_for_all(singleton->tabs, [&](ScriptEditorDebugger *dbg) {
-		dbg->_new_resource_created(p_class_name, p_path);
+		dbg->_new_resource_created(p_class_name, p_path, p_sub_resources_path_array);
 	});
 }
 

@@ -125,7 +125,7 @@ class InspectorDock : public EditorDock {
 	void _info_pressed();
 	void _resource_created();
 	void _resource_selected(const Ref<Resource> &p_res, const String &p_property);
-	void _new_resource_created(const String &p_class_name, const String &p_path);
+	void _new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array);
 	void _resource_made_unique(const String &p_source_path, const String &p_target_path);
 	void _resource_sub_resource_changed(const Ref<Resource> &p_resource, const StringName &p_property, const Ref<Resource> &p_sub_resource);
 	void _files_moved(const String &p_old_file, const String &p_new_file);

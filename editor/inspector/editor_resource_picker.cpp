@@ -48,6 +48,7 @@
 #include "scene/gui/texture_rect.h"
 #include "scene/resources/gradient_texture.h"
 #include "scene/resources/image_texture.h"
+#include "editor_properties_array_dict.h"
 
 static bool _has_sub_resources(const Ref<Resource> &p_res) {
 	List<PropertyInfo> property_list;
@@ -151,8 +152,8 @@ void EditorResourcePicker::_resource_changed() {
 }
 
 
-void EditorResourcePicker::_new_resource_created(const String &p_class_name, const String &p_path) {
-	emit_signal(SNAME("new_resource_created"), p_class_name, p_path);
+void EditorResourcePicker::_new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array) {
+	emit_signal(SNAME("new_resource_created"), p_class_name, p_path, p_sub_resources_path_array);
 }
 
 void EditorResourcePicker::_resource_made_unique(const String &p_source_path, const String &p_target_path) {
@@ -519,8 +520,6 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 			Variant obj;
 
 			if (ScriptServer::is_global_class(intype)) {
-				// TODO: am I allowed to have a dependency to EditorNode here ?
-				// I just need EditorData to initialize the new object just like in the EditorResourcePicker
 				obj = EditorNode::get_editor_data().script_class_instance(intype);
 			} else {
 				obj = ClassDB::instantiate(intype);
@@ -534,12 +533,12 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 			ERR_BREAK(!resp);
 			resp->set_path(_get_owner_path(this) + "::" + resp->generate_scene_unique_id()); // Assign a base path for built-in Resources.
 
-			EditorNode::get_editor_data().instantiate_object_properties(obj);
+			Array sub_resources_path_array = EditorNode::get_editor_data().instantiate_resource_properties(resp, _get_owner_path(this));
 
 			// Prevent freeing of the object until the end of the update of the resource (GH-88286).
 			Ref<Resource> old_edited_resource = edited_resource;
 			edited_resource = Ref<Resource>(resp);
-			_new_resource_created(intype, resp->get_path());
+			_new_resource_created(intype, resp->get_path(), sub_resources_path_array);
 			_resource_changed();
 		} break;
 	}
@@ -637,6 +636,16 @@ String EditorResourcePicker::_get_owner_path(Node *p_node) const {
 		return String();
 	}
 	Object *obj = property->get_edited_object();
+
+	EditorPropertyArrayObject *editor_property_array_obj = Object::cast_to<EditorPropertyArrayObject>(obj);
+	if (editor_property_array_obj) {
+		return _get_owner_path(parent_node);
+	}
+
+	EditorPropertyDictionaryObject *editor_property_dictionary_obj = Object::cast_to<EditorPropertyDictionaryObject>(obj);
+	if (editor_property_dictionary_obj) {
+		return _get_owner_path(parent_node);
+	}
 
 	Node *node = Object::cast_to<Node>(obj);
 	if (node) {
@@ -939,7 +948,7 @@ void EditorResourcePicker::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("resource_selected", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), PropertyInfo(Variant::BOOL, "inspect")));
 	ADD_SIGNAL(MethodInfo("resource_changed", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
-	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::STRING, "class_name"), PropertyInfo(Variant::STRING, "path")));
+	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::STRING, "class_name"), PropertyInfo(Variant::STRING, "path"), PropertyInfo(Variant::ARRAY, "sub_resources_path_array")));
 	ADD_SIGNAL(MethodInfo("resource_made_unique", PropertyInfo(Variant::STRING, "source_path"), PropertyInfo(Variant::STRING, "target_path")));
 	ADD_SIGNAL(MethodInfo("resource_sub_resource_changed", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), PropertyInfo(Variant::STRING, "property"), PropertyInfo(Variant::OBJECT, "sub_resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
 }

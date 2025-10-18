@@ -353,14 +353,10 @@ Error SceneDebugger::_msg_live_res_call(const Array &p_args) {
 }
 
 Error SceneDebugger::_msg_live_new_resource_created(const Array &p_args) {
-	ERR_FAIL_COND_V(p_args.size() < 2, ERR_INVALID_DATA);
+	ERR_FAIL_COND_V(p_args.size() < 3, ERR_INVALID_DATA);
 	String class_name = p_args[0];
 	String path = p_args[1];
-
-	// TODO: remove this when done
-	print_line("_msg_live_new_resource_created");
-	print_line(class_name);
-	print_line(path);
+	Array sub_resources_path_array = p_args[2];
 
 	Variant obj;
 	if (ScriptServer::is_global_class(class_name)) {
@@ -375,7 +371,7 @@ Error SceneDebugger::_msg_live_new_resource_created(const Array &p_args) {
 
 	Resource *new_resource = Object::cast_to<Resource>(obj);
 	new_resource->set_path(path, true);
-	EditorNode::get_editor_data().instantiate_object_properties(obj);
+	EditorNode::get_editor_data().instantiate_resource_properties_and_set_sub_resource_path(new_resource, sub_resources_path_array);
 
 	// Prevent freeing of the object
 	last_received_resource = new_resource;
@@ -387,11 +383,6 @@ Error SceneDebugger::_msg_live_resource_made_unique(const Array &p_args) {
 	ERR_FAIL_COND_V(p_args.size() < 2, ERR_INVALID_DATA);
 	String source_path = p_args[0];
 	String target_path = p_args[1];
-
-	// TODO: remove this when done
-	print_line("_msg_live_resource_made_unique");
-	print_line(source_path);
-	print_line(target_path);
 
 	Ref<Resource> loaded_resource = ResourceLoader::load(source_path);
 	Ref<Resource> new_unique_resource = loaded_resource->duplicate();
@@ -406,12 +397,6 @@ Error SceneDebugger::_msg_live_resource_sub_resource_changed(const Array &p_args
 	String resource_path = p_args[0];
 	String property_name = p_args[1];
 	String sub_resource_path = p_args[2];
-
-	// TODO: remove this when done
-	print_line("_msg_live_resource_sub_resource_changed");
-	print_line(resource_path);
-	print_line(property_name);
-	print_line(sub_resource_path);
 
 	Ref<Resource> loaded_resource = ResourceLoader::load(resource_path);
 	Ref<Resource> loaded_sub_resource = ResourceLoader::load(sub_resource_path);

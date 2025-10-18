@@ -1564,8 +1564,8 @@ void ScriptEditorDebugger::_property_changed(Object *p_base, const StringName &p
 	}
 }
 
-void ScriptEditorDebugger::_new_resource_created(const String &p_class_name, const String &p_path) {
-	Array msg = { p_class_name, p_path };
+void ScriptEditorDebugger::_new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array) {
+	Array msg = { p_class_name, p_path, p_sub_resources_path_array };
 	_put_msg("scene:live_new_resource_created", msg);
 }
 

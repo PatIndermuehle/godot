@@ -3356,8 +3356,8 @@ void EditorPropertyResource::_resource_changed(const Ref<Resource> &p_resource) 
 	}
 }
 
-void EditorPropertyResource::_new_resource_created(const String &p_class_name, const String &p_path) {
-	emit_signal(SNAME("new_resource_created"), p_class_name, p_path);
+void EditorPropertyResource::_new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array) {
+	emit_signal(SNAME("new_resource_created"), p_class_name, p_path, p_sub_resources_path_array);
 }
 
 void EditorPropertyResource::_resource_made_unique(const String &p_source_path, const String &p_target_path) {

@@ -196,6 +196,8 @@ public:
 	bool is_type_recognized(const String &p_type) const;
 
 	void instantiate_object_properties(Object *p_object);
+	void instantiate_resource_properties_and_set_sub_resource_path(const Ref<Resource> &p_resource, Array &p_sub_resources_path_array);
+	Array instantiate_resource_properties(const Ref<Resource> &p_resource, const String &p_owner_path);
 
 	int add_edited_scene(int p_at_pos);
 	void move_edited_scene_index(int p_idx, int p_to_idx);

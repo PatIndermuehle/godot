@@ -1454,7 +1454,7 @@ void EditorProperty::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("multiple_properties_changed", PropertyInfo(Variant::PACKED_STRING_ARRAY, "properties"), PropertyInfo(Variant::ARRAY, "value")));
 	ADD_SIGNAL(MethodInfo("property_keyed", PropertyInfo(Variant::STRING_NAME, "property")));
 	ADD_SIGNAL(MethodInfo("property_deleted", PropertyInfo(Variant::STRING_NAME, "property")));
-	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::STRING, "class_name"), PropertyInfo(Variant::STRING, "path")));
+	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::STRING, "class_name"), PropertyInfo(Variant::STRING, "path"), PropertyInfo(Variant::ARRAY, "sub_resources_path_array")));
 	ADD_SIGNAL(MethodInfo("resource_made_unique", PropertyInfo(Variant::STRING, "source_path"), PropertyInfo(Variant::STRING, "target_path")));
 	ADD_SIGNAL(MethodInfo("resource_sub_resource_changed", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), PropertyInfo(Variant::STRING, "property"), PropertyInfo(Variant::OBJECT, "sub_resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
 	ADD_SIGNAL(MethodInfo("property_keyed_with_value", PropertyInfo(Variant::STRING_NAME, "property"), PropertyInfo(Variant::NIL, "value", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NIL_IS_VARIANT)));
@@ -5298,8 +5298,8 @@ void EditorInspector::_resource_selected(const String &p_path, Ref<Resource> p_r
 	emit_signal(SNAME("resource_selected"), p_resource, p_path);
 }
 
-void EditorInspector::_new_resource_created(const String &p_class_name, const String &p_path) {
-	emit_signal(SNAME("new_resource_created"), p_class_name, p_path);
+void EditorInspector::_new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array) {
+	emit_signal(SNAME("new_resource_created"), p_class_name, p_path, p_sub_resources_path_array);
 }
 
 void EditorInspector::_resource_made_unique(const String &p_source_path, const String &p_target_path) {
@@ -5739,7 +5739,7 @@ void EditorInspector::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("property_keyed", PropertyInfo(Variant::STRING, "property"), PropertyInfo(Variant::NIL, "value", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NIL_IS_VARIANT), PropertyInfo(Variant::BOOL, "advance")));
 	ADD_SIGNAL(MethodInfo("property_deleted", PropertyInfo(Variant::STRING, "property")));
 	ADD_SIGNAL(MethodInfo("resource_selected", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), PropertyInfo(Variant::STRING, "path")));
-	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::STRING, "class_name"), PropertyInfo(Variant::STRING, "path")));
+	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::STRING, "class_name"), PropertyInfo(Variant::STRING, "path"), PropertyInfo(Variant::ARRAY, "sub_resources_path_array")));
 	ADD_SIGNAL(MethodInfo("resource_made_unique", PropertyInfo(Variant::STRING, "source_path"), PropertyInfo(Variant::STRING, "target_path")));
 	ADD_SIGNAL(MethodInfo("resource_sub_resource_changed", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), PropertyInfo(Variant::STRING, "property"), PropertyInfo(Variant::OBJECT, "sub_resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
 	ADD_SIGNAL(MethodInfo("object_id_selected", PropertyInfo(Variant::INT, "id")));

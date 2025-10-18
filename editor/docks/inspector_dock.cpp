@@ -399,8 +399,8 @@ void InspectorDock::_resource_selected(const Ref<Resource> &p_res, const String 
 	EditorNode::get_singleton()->push_item(r.operator->(), p_property);
 }
 
-void InspectorDock::_new_resource_created(const String &p_class_name, const String &p_path) {
-	emit_signal(SNAME("new_resource_created"), p_class_name, p_path);
+void InspectorDock::_new_resource_created(const String &p_class_name, const String &p_path, const Array &p_sub_resources_path_array) {
+	emit_signal(SNAME("new_resource_created"), p_class_name, p_path, p_sub_resources_path_array);
 }
 
 void InspectorDock::_resource_made_unique(const String &p_source_path, const String &p_target_path) {
@@ -516,7 +516,7 @@ void InspectorDock::_bind_methods() {
 	ClassDB::bind_method("apply_script_properties", &InspectorDock::apply_script_properties);
 
 	ADD_SIGNAL(MethodInfo("request_help"));
-	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::STRING, "class_name"), PropertyInfo(Variant::STRING, "path")));
+	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::STRING, "class_name"), PropertyInfo(Variant::STRING, "path"), PropertyInfo(Variant::ARRAY, "sub_resources_path_array")));
 	ADD_SIGNAL(MethodInfo("resource_made_unique", PropertyInfo(Variant::STRING, "source_path"), PropertyInfo(Variant::STRING, "target_path")));
 	ADD_SIGNAL(MethodInfo("resource_sub_resource_changed", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), PropertyInfo(Variant::STRING, "property"), PropertyInfo(Variant::OBJECT, "sub_resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
 }
