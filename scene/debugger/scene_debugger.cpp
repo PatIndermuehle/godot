@@ -390,6 +390,8 @@ Error SceneDebugger::_msg_live_resource_made_unique(const Array &p_args) {
 
 	// Prevent freeing of the object
 	last_received_resource = new_unique_resource;
+
+	return OK;
 }
 
 Error SceneDebugger::_msg_live_resource_sub_resource_changed(const Array &p_args) {
@@ -401,6 +403,8 @@ Error SceneDebugger::_msg_live_resource_sub_resource_changed(const Array &p_args
 	Ref<Resource> loaded_resource = ResourceLoader::load(resource_path);
 	Ref<Resource> loaded_sub_resource = ResourceLoader::load(sub_resource_path);
 	loaded_resource->set(property_name, loaded_sub_resource);
+
+	return OK;
 }
 
 Error SceneDebugger::_msg_live_create_node(const Array &p_args) {
