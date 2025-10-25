@@ -1270,7 +1270,7 @@ void EditorResourcePicker::_gather_resources_to_duplicate(const Ref<Resource> p_
 }
 
 void EditorResourcePicker::_duplicate_selected_resources() {
-	bool has_resource_changed = false;
+
 	for (TreeItem *item = duplicate_resources_tree->get_root(); item; item = item->get_next_in_tree()) {
 		if (!item->is_checked(0)) {
 			continue;
@@ -1284,12 +1284,11 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 
 		if (meta.size() == 1) { // Root.
 			edited_resource = unique_resource;
-			has_resource_changed = true;
 		} else if (meta.size() >= 4) { // Sub-Arrays or Sub-Dictionaries
 			Variant::Type var_type = meta[2];
 			int key_index = meta[3];
 
-			if (var_type == Variant::ARRAY) {
+			if (var_type == Variant::ARRAY) { // Sub-Arrays
 				Array parent_meta = item->get_parent()->get_metadata(0);
 				Ref<Resource> parent = parent_meta[0];
 				Array parent_resource_array = parent->get(meta[1]);
@@ -1297,13 +1296,14 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 				parent_resource_array_clone.set(key_index, unique_resource);
 				parent->set(meta[1] ,parent_resource_array_clone);
 			}
-			else if (var_type == Variant::DICTIONARY) {
+			else if (var_type == Variant::DICTIONARY) { // Sub-Dictionaries
 				bool is_key = meta[4];
 				Array parent_meta = item->get_parent()->get_metadata(0);
 				Ref<Resource> parent = parent_meta[0];
 				Dictionary parent_resource_dictionary = parent->get(meta[1]);
 				Dictionary parent_resource_dictionary_clone = parent_resource_dictionary.duplicate();
 				Variant found_key = parent_resource_dictionary_clone.get_key_at_index(key_index);
+			
 				if (is_key) {
 					Variant found_value = parent_resource_dictionary_clone.get_valid(found_key);
 					parent_resource_dictionary_clone.erase(found_key);
@@ -1311,7 +1311,6 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 				} else {
 					parent_resource_dictionary_clone.set(found_key, unique_resource);
 				}
-				
 			}
 		}
 		else { // Regular properties
@@ -1320,10 +1319,8 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 			parent->set(meta[1], unique_resource);
 		}
 	}
-	if (has_resource_changed) {
-		_resource_changed();
-	}
-	// TODO: we need changes of arrays and dictionaries to also send a signal
+
+	_resource_changed();
 }
 
 EditorResourcePicker::EditorResourcePicker(bool p_hide_assign_button_controls) {
