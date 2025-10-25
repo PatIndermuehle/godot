@@ -36,6 +36,7 @@
 #include "editor/docks/scene_tree_dock.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
+#include "editor/editor_undo_redo_manager.h"
 #include "editor/gui/editor_file_dialog.h"
 #include "editor/gui/editor_quick_open_dialog.h"
 #include "editor/inspector/editor_inspector.h"
@@ -1270,6 +1271,10 @@ void EditorResourcePicker::_gather_resources_to_duplicate(const Ref<Resource> p_
 }
 
 void EditorResourcePicker::_duplicate_selected_resources() {
+	Array object_list;
+	Vector<String> property_names_list;
+	Array property_values_list;
+	bool root_resource_changed = false;
 
 	for (TreeItem *item = duplicate_resources_tree->get_root(); item; item = item->get_next_in_tree()) {
 		if (!item->is_checked(0)) {
@@ -1284,43 +1289,133 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 
 		if (meta.size() == 1) { // Root.
 			edited_resource = unique_resource;
+			root_resource_changed = true;
 		} else if (meta.size() >= 4) { // Sub-Arrays or Sub-Dictionaries
+			Array parent_meta = item->get_parent()->get_metadata(0);
+			Ref<Resource> parent = parent_meta[0];
+			String property_name = meta[1];
 			Variant::Type var_type = meta[2];
 			int key_index = meta[3];
 
 			if (var_type == Variant::ARRAY) { // Sub-Arrays
-				Array parent_meta = item->get_parent()->get_metadata(0);
-				Ref<Resource> parent = parent_meta[0];
-				Array parent_resource_array = parent->get(meta[1]);
-				Array parent_resource_array_clone = parent_resource_array.duplicate();
-				parent_resource_array_clone.set(key_index, unique_resource);
-				parent->set(meta[1] ,parent_resource_array_clone);
+			
+				int found_index = -1;
+				for (size_t i = 0; i < object_list.size(); i++) {
+					if (object_list[i] == parent && property_names_list[i] == property_name) {
+						found_index = i;
+						break;
+					}
+				}
+
+				if (found_index != -1) {
+					property_values_list[found_index].set(key_index, unique_resource);
+				} else {
+					Array parent_resource_array = parent->get(property_name);
+					Array parent_resource_array_clone = parent_resource_array.duplicate();
+					parent_resource_array_clone.set(key_index, unique_resource);
+					object_list.push_back(parent);
+					property_names_list.push_back(property_name);
+					property_values_list.push_back(parent_resource_array_clone);
+				}
+
 			}
 			else if (var_type == Variant::DICTIONARY) { // Sub-Dictionaries
 				bool is_key = meta[4];
-				Array parent_meta = item->get_parent()->get_metadata(0);
-				Ref<Resource> parent = parent_meta[0];
-				Dictionary parent_resource_dictionary = parent->get(meta[1]);
-				Dictionary parent_resource_dictionary_clone = parent_resource_dictionary.duplicate();
-				Variant found_key = parent_resource_dictionary_clone.get_key_at_index(key_index);
+
+				int found_index = -1;
+				for (size_t i = 0; i < object_list.size(); i++) {
+					if (object_list[i] == parent && property_names_list[i] == property_name) {
+						found_index = i;
+						break;
+					}
+				}
 			
-				if (is_key) {
-					Variant found_value = parent_resource_dictionary_clone.get_valid(found_key);
-					parent_resource_dictionary_clone.erase(found_key);
-					parent_resource_dictionary_clone.set(unique_resource, found_value);
+				if (found_index != -1) {
+					Dictionary found_dictionary = property_values_list[found_index];
+					Variant found_key = found_dictionary.get_key_at_index(key_index);
+
+					if (is_key) {
+						Variant found_value = found_dictionary.get_valid(found_key);
+						found_dictionary.erase(found_key);
+						found_dictionary.set(unique_resource, found_value);
+					} else {
+						found_dictionary.set(found_key, unique_resource);
+					}
+
 				} else {
-					parent_resource_dictionary_clone.set(found_key, unique_resource);
+					Dictionary parent_resource_dictionary = parent->get(property_name);
+					Dictionary parent_resource_dictionary_clone = parent_resource_dictionary.duplicate();
+					Variant found_key = parent_resource_dictionary.get_key_at_index(key_index);
+
+					if (is_key) {
+						Variant found_value = parent_resource_dictionary_clone.get_valid(found_key);
+						parent_resource_dictionary_clone.erase(found_key);
+						parent_resource_dictionary_clone.set(unique_resource, found_value);
+					} else {
+						parent_resource_dictionary_clone.set(found_key, unique_resource);
+					}
+
+					object_list.push_back(parent);
+					property_names_list.push_back(property_name);
+					property_values_list.push_back(parent_resource_dictionary_clone);
 				}
 			}
 		}
 		else { // Regular properties
 			Array parent_meta = item->get_parent()->get_metadata(0);
 			Ref<Resource> parent = parent_meta[0];
-			parent->set(meta[1], unique_resource);
+			String property_name = meta[1];
+
+			object_list.push_back(parent);
+			property_names_list.push_back(property_name);
+			property_values_list.push_back(unique_resource);
 		}
 	}
 
-	_resource_changed();
+	if (root_resource_changed) {
+		_change_resource_properties(object_list, property_names_list, property_values_list, false);
+		_resource_changed();
+	} else {
+		_change_resource_properties(object_list, property_names_list, property_values_list, true);
+		_update_resource();
+	}
+	
+}
+
+void EditorResourcePicker::_change_resource_properties(const Array &p_objects, const Vector<String> &p_paths, const Array &p_values, bool p_commit) {
+	ERR_FAIL_COND(p_objects.is_empty() || p_paths.is_empty() || p_values.is_empty());
+	ERR_FAIL_COND(p_objects.size() != p_paths.size() || p_paths.size() != p_values.size());
+	String names;
+	for (int i = 0; i < p_paths.size(); i++) {
+		if (i > 0) {
+			names += ",";
+		}
+		names += p_paths[i];
+	}
+
+	if (p_commit) {
+		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
+		// TRANSLATORS: This is describing a change to multiple properties at once. The parameter is a list of property names.
+		undo_redo->create_action(vformat(TTR("Set Multiple: %s"), names), UndoRedo::MERGE_ENDS);
+
+		for (int i = 0; i < p_objects.size(); i++) {
+			bool valid = false;
+			Variant target_object = p_objects[i];
+			Variant value = target_object.get(p_paths[i], &valid);
+			if (valid) {
+				undo_redo->add_undo_property(target_object, p_paths[i], value);
+				undo_redo->add_do_property(target_object, p_paths[i], p_values[i]);
+			}
+		}
+
+		undo_redo->commit_action();
+	} else {
+		for (int i = 0; i < p_objects.size(); i++) {
+			bool valid = false;
+			Variant target_object = p_objects[i];
+			target_object.set(p_paths[i], p_values[i]);
+		}
+	}
 }
 
 EditorResourcePicker::EditorResourcePicker(bool p_hide_assign_button_controls) {
