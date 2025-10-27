@@ -3363,6 +3363,16 @@ void EditorPropertyResource::_sub_inspector_property_keyed(const String &p_prope
 	emit_signalp(SNAME("property_keyed_with_value"), argp, 3);
 }
 
+void EditorPropertyResource::_sub_inspector_property_edited(const String &p_property) {
+	if (String(get_edited_property()).begins_with("indices")) {
+		// This resource is an array element, propagate the change to the EditorPropertyArray
+		emit_changed(get_edited_property(), get_edited_property_value(), StringName(),false, true);
+	}
+	else {
+		update_editor_property_status();
+	}
+}
+
 void EditorPropertyResource::_sub_inspector_resource_selected(const Ref<Resource> &p_resource, const String &p_property) {
 	emit_signal(SNAME("resource_selected"), String(get_edited_property()) + ":" + p_property, p_resource);
 }
@@ -3489,6 +3499,7 @@ void EditorPropertyResource::update_property() {
 				sub_inspector->set_property_name_style(InspectorDock::get_singleton()->get_property_name_style());
 
 				sub_inspector->connect("property_keyed", callable_mp(this, &EditorPropertyResource::_sub_inspector_property_keyed));
+				sub_inspector->connect("property_edited", callable_mp(this, &EditorPropertyResource::_sub_inspector_property_edited));
 				sub_inspector->connect("resource_selected", callable_mp(this, &EditorPropertyResource::_sub_inspector_resource_selected));
 				sub_inspector->connect("object_id_selected", callable_mp(this, &EditorPropertyResource::_sub_inspector_object_id_selected));
 				sub_inspector->set_keying(is_keying());

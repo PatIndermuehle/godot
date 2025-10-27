@@ -2642,7 +2642,8 @@ bool CSharpScript::get_property_default_value(const StringName &p_property, Vari
 
 	HashMap<StringName, Variant>::ConstIterator E = exported_members_defval_cache.find(p_property);
 	if (E) {
-		r_value = E->value;
+		// We have to duplicate default values, otherwise changes in the editor can bleed into the cache
+		r_value = E->value.duplicate_deep(RESOURCE_DEEP_DUPLICATE_ALL);
 		return true;
 	}
 

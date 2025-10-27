@@ -250,7 +250,7 @@ void EditorPropertyArray::initialize_array(Variant &p_array) {
 	}
 }
 
-void EditorPropertyArray::_property_changed(const String &p_property, Variant p_value, const String &p_name, bool p_changing) {
+void EditorPropertyArray::_property_changed(const String &p_property, Variant p_value, const String &p_name, bool p_changing, bool p_commited) {
 	if (!p_property.begins_with("indices")) {
 		return;
 	}
@@ -263,7 +263,7 @@ void EditorPropertyArray::_property_changed(const String &p_property, Variant p_
 
 	Variant array = object->get_array().duplicate();
 	array.set(index, p_value);
-	emit_changed(get_edited_property(), array, p_name, p_changing);
+	emit_changed(get_edited_property(), array, p_name, p_changing, p_commited);
 	if (p_changing) {
 		object->set_array(array);
 	}

@@ -260,12 +260,12 @@ Size2 EditorProperty::get_minimum_size() const {
 	return ms;
 }
 
-void EditorProperty::emit_changed(const StringName &p_property, const Variant &p_value, const StringName &p_field, bool p_changing) {
-	Variant args[4] = { p_property, p_value, p_field, p_changing };
-	const Variant *argptrs[4] = { &args[0], &args[1], &args[2], &args[3] };
+void EditorProperty::emit_changed(const StringName &p_property, const Variant &p_value, const StringName &p_field, bool p_changing, bool p_commited) {
+	Variant args[5] = { p_property, p_value, p_field, p_changing, p_commited };
+	const Variant *argptrs[5] = { &args[0], &args[1], &args[2], &args[3], &args[4] };
 
 	cache[p_property] = p_value;
-	emit_signalp(SNAME("property_changed"), (const Variant **)argptrs, 4);
+	emit_signalp(SNAME("property_changed"), (const Variant **)argptrs, 5);
 }
 
 void EditorProperty::_notification(int p_what) {
@@ -744,7 +744,53 @@ bool EditorPropertyRevert::can_property_revert(Object *p_object, const StringNam
 		return false;
 	}
 	Variant current_value = p_custom_current_value ? *p_custom_current_value : p_object->get(p_property);
-	return PropertyUtils::is_property_value_different(p_object, current_value, revert_value);
+
+	return is_property_value_different(p_object, current_value, revert_value);
+}
+
+
+bool EditorPropertyRevert::is_property_value_different(Object *p_object, const Variant &p_current_value, const Variant &p_revert_value) {
+	Ref<Resource> current_resource = p_current_value;
+	if (current_resource.is_valid() && current_resource->is_built_in()) {
+		List<PropertyInfo> pinfos;
+		current_resource->get_property_list(&pinfos);
+		bool can_revert = false;
+		for (const PropertyInfo &pi : pinfos) {
+			if (pi.usage & PROPERTY_USAGE_EDITOR) {
+				if (pi.name == "script") {
+					continue;
+				}
+				if (pi.name == "resource_path") {
+					continue;
+				}
+				Variant resource_prop = current_resource->get(pi.name);
+				can_revert = can_property_revert(p_object, pi.name, &resource_prop);
+				if (can_revert) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	if (p_current_value.is_array()) {
+		Array current_array = p_current_value;
+		Array revert_array = p_revert_value;
+
+		// TODO: what if we get array nil here ?!?
+		if (current_array.size() != revert_array.size()) {
+			return true;
+		}
+		bool can_revert = false;
+		for (int i = 0; i < current_array.size(); i++) {
+			can_revert = is_property_value_different(p_object, current_array[i], revert_array[i]);
+			if (can_revert) {
+				return true;
+			}
+		}
+		return false;
+	} else {
+		return PropertyUtils::is_property_value_different(p_object, p_current_value, p_revert_value);
+	}
 }
 
 StringName EditorProperty::_get_revert_property() const {
@@ -1435,7 +1481,7 @@ void EditorProperty::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_object_and_property", "object", "property"), &EditorProperty::set_object_and_property);
 	ClassDB::bind_method(D_METHOD("set_label_reference", "control"), &EditorProperty::set_label_reference);
 
-	ClassDB::bind_method(D_METHOD("emit_changed", "property", "value", "field", "changing"), &EditorProperty::emit_changed, DEFVAL(StringName()), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("emit_changed", "property", "value", "field", "changing", "commited"), &EditorProperty::emit_changed, DEFVAL(StringName()), DEFVAL(false), DEFVAL(false));
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "label"), "set_label", "get_label");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "read_only"), "set_read_only", "is_read_only");
@@ -1450,7 +1496,7 @@ void EditorProperty::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_folding"), "set_use_folding", "is_using_folding");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "name_split_ratio"), "set_name_split_ratio", "get_name_split_ratio");
 
-	ADD_SIGNAL(MethodInfo("property_changed", PropertyInfo(Variant::STRING_NAME, "property"), PropertyInfo(Variant::NIL, "value", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NIL_IS_VARIANT), PropertyInfo(Variant::STRING_NAME, "field"), PropertyInfo(Variant::BOOL, "changing")));
+	ADD_SIGNAL(MethodInfo("property_changed", PropertyInfo(Variant::STRING_NAME, "property"), PropertyInfo(Variant::NIL, "value", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NIL_IS_VARIANT), PropertyInfo(Variant::STRING_NAME, "field"), PropertyInfo(Variant::BOOL, "changing"), PropertyInfo(Variant::BOOL, "commited")));
 	ADD_SIGNAL(MethodInfo("multiple_properties_changed", PropertyInfo(Variant::PACKED_STRING_ARRAY, "properties"), PropertyInfo(Variant::ARRAY, "value")));
 	ADD_SIGNAL(MethodInfo("property_keyed", PropertyInfo(Variant::STRING_NAME, "property")));
 	ADD_SIGNAL(MethodInfo("property_deleted", PropertyInfo(Variant::STRING_NAME, "property")));
@@ -5116,15 +5162,24 @@ void EditorInspector::_edit_set(const String &p_name, const Variant &p_value, bo
 	}
 }
 
-void EditorInspector::_property_changed(const String &p_path, const Variant &p_value, const String &p_name, bool p_changing, bool p_update_all) {
+void EditorInspector::_property_changed(const String &p_path, const Variant &p_value, const String &p_name, bool p_changing, bool p_commited, bool p_update_all) {
 	// The "changing" variable must be true for properties that trigger events as typing occurs,
 	// like "text_changed" signal. E.g. text property of Label, Button, RichTextLabel, etc.
 	if (p_changing) {
 		changing++;
 	}
 
-	_edit_set(p_path, p_value, p_update_all, p_name);
-
+	if (p_commited) {
+		if (editor_property_map.has(p_path)) {
+			for (EditorProperty *E : editor_property_map[p_path]) {
+				E->update_editor_property_status();
+			}
+		}
+	}
+	else {
+		_edit_set(p_path, p_value, p_update_all, p_name);
+	}
+	
 	if (p_changing) {
 		changing--;
 	}

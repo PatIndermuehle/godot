@@ -44,6 +44,7 @@
 #include "editor/script/script_editor_plugin.h"
 #include "editor/settings/editor_settings.h"
 #include "editor/themes/editor_scale.h"
+#include "editor_properties_array_dict.h"
 #include "scene/gui/button.h"
 #include "scene/gui/texture_rect.h"
 #include "scene/resources/gradient_texture.h"
@@ -514,7 +515,8 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 
 			Resource *resp = Object::cast_to<Resource>(obj);
 			ERR_BREAK(!resp);
-			resp->set_path(_get_owner_path() + "::" + resp->generate_scene_unique_id()); // Assign a base path for built-in Resources.
+			resp->set_path(_get_owner_path(this) + "::" + resp->generate_scene_unique_id()); // Assign a base path for built-in Resources.
+			resp->set_sub_resources_paths(_get_owner_path(this)); // Assign a base path for all built-in Sub-Resources.
 
 			EditorNode::get_editor_data().instantiate_object_properties(obj);
 
@@ -608,12 +610,26 @@ void EditorResourcePicker::_button_input(const Ref<InputEvent> &p_event) {
 	}
 }
 
-String EditorResourcePicker::_get_owner_path() const {
-	EditorProperty *property = Object::cast_to<EditorProperty>(get_parent());
+String EditorResourcePicker::_get_owner_path(Node *p_node) const {
+	Node *parent_node = p_node->get_parent();
+	EditorProperty *property = Object::cast_to<EditorProperty>(parent_node);
 	if (!property) {
+		if (parent_node) {
+			return _get_owner_path(parent_node);
+		}
 		return String();
 	}
 	Object *obj = property->get_edited_object();
+
+	EditorPropertyArrayObject *editor_property_array_obj = Object::cast_to<EditorPropertyArrayObject>(obj);
+	if (editor_property_array_obj) {
+		return _get_owner_path(parent_node);
+	}
+
+	EditorPropertyDictionaryObject *editor_property_dictionary_obj = Object::cast_to<EditorPropertyDictionaryObject>(obj);
+	if (editor_property_dictionary_obj) {
+		return _get_owner_path(parent_node);
+	}
 
 	Node *node = Object::cast_to<Node>(obj);
 	if (node) {
@@ -627,10 +643,13 @@ String EditorResourcePicker::_get_owner_path() const {
 	}
 
 	Resource *res = Object::cast_to<Resource>(obj);
-	if (res && !res->is_built_in()) {
-		return res->get_path();
+	if (res) {
+		if (!res->is_built_in()) {
+			return res->get_path();
+		} else {
+			return _get_owner_path(property);
+		}
 	}
-	// TODO: It would be nice to handle deeper Resource nesting.
 	return String();
 }
 

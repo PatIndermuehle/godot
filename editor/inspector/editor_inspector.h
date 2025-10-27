@@ -56,6 +56,7 @@ class EditorPropertyRevert {
 public:
 	static Variant get_property_revert_value(Object *p_object, const StringName &p_property, bool *r_is_valid);
 	static bool can_property_revert(Object *p_object, const StringName &p_property, const Variant *p_custom_current_value = nullptr);
+	static bool is_property_value_different(Object *p_object, const Variant &p_current_value, const Variant &p_revert_value);
 };
 
 class EditorInspectorActionButton : public Button {
@@ -180,7 +181,7 @@ protected:
 	void _accessibility_action_click(const Variant &p_data);
 
 public:
-	void emit_changed(const StringName &p_property, const Variant &p_value, const StringName &p_field = StringName(), bool p_changing = false);
+	void emit_changed(const StringName &p_property, const Variant &p_value, const StringName &p_field = StringName(), bool p_changing = false, bool p_commited = false);
 
 	String get_tooltip_string(const String &p_string) const;
 
@@ -724,7 +725,7 @@ class EditorInspector : public ScrollContainer {
 
 	void _edit_set(const String &p_name, const Variant &p_value, bool p_refresh_all, const String &p_changed_field);
 
-	void _property_changed(const String &p_path, const Variant &p_value, const String &p_name = "", bool p_changing = false, bool p_update_all = false);
+	void _property_changed(const String &p_path, const Variant &p_value, const String &p_name = "", bool p_changing = false, bool p_commited = false, bool p_update_all = false);
 	void _multiple_properties_changed(const Vector<String> &p_paths, const Array &p_values, bool p_changing = false);
 	void _property_keyed(const String &p_path, bool p_advance);
 	void _property_keyed_with_value(const String &p_path, const Variant &p_value, bool p_advance);

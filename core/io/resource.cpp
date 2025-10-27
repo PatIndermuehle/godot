@@ -37,6 +37,30 @@
 #include "core/variant/container_type_validate.h"
 #include "scene/main/node.h" //only so casting works
 
+void Resource::set_sub_resources_paths(const String &p_owner_path) {
+	List<PropertyInfo> props;
+	get_property_list(&props);
+
+	for (const PropertyInfo &E : props) {
+		Variant found_var = get(E.name);
+		Ref<Resource> found_resource = found_var;
+
+		if (found_resource.is_valid() && found_resource->get_path().is_empty()) {
+			found_resource->set_path(p_owner_path + "::" + found_resource->generate_scene_unique_id());
+			found_resource->set_sub_resources_paths(p_owner_path);
+		} else if (found_var.is_array()) {
+			Array found_array = found_var;
+			for (int i = 0; i < found_array.size(); i++) {
+				Ref<Resource> array_item_res = found_array[i];
+				if (array_item_res.is_valid() && array_item_res->get_path().is_empty()) {
+					array_item_res->set_path(p_owner_path + "::" + array_item_res->generate_scene_unique_id());
+					array_item_res->set_sub_resources_paths(p_owner_path);
+				}
+			}
+		}
+	}
+}
+
 void Resource::emit_changed() {
 	if (emit_changed_state != EMIT_CHANGED_UNBLOCKED) {
 		emit_changed_state = EMIT_CHANGED_BLOCKED_PENDING_EMIT;
