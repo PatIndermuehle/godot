@@ -605,6 +605,7 @@ private:
 
 	void _inherit_request(String p_file);
 	void _instantiate_request(const Vector<String> &p_files);
+	void _new_resource_created(const Ref<Resource> p_resource);
 
 	void _quick_opened(const String &p_file_path);
 	void _open_command_palette();

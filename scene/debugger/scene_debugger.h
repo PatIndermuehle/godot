@@ -53,6 +53,7 @@ class Node3D;
 class SceneDebugger {
 private:
 	inline static SceneDebugger *singleton = nullptr;
+	inline static Ref<Resource> last_received_resource;
 
 	SceneDebugger();
 
@@ -106,6 +107,7 @@ private:
 	static Error _msg_live_res_prop(const Array &p_args);
 	static Error _msg_live_node_call(const Array &p_args);
 	static Error _msg_live_res_call(const Array &p_args);
+	static Error _msg_live_new_resource_created(const Array &p_args);
 	static Error _msg_live_create_node(const Array &p_args);
 	static Error _msg_live_instantiate_node(const Array &p_args);
 	static Error _msg_live_remove_node(const Array &p_args);

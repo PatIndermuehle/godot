@@ -4981,6 +4981,10 @@ void EditorNode::_instantiate_request(const Vector<String> &p_files) {
 	request_instantiate_scenes(p_files);
 }
 
+void EditorNode::_new_resource_created(const Ref<Resource> p_resource) {
+	EditorDebuggerNode::_new_resource_created(p_resource);
+}
+
 void EditorNode::_close_messages() {
 	old_split_ofs = center_split->get_split_offset();
 	center_split->set_split_offset(0);
@@ -8452,6 +8456,7 @@ EditorNode::EditorNode() {
 
 	memnew(InspectorDock(editor_data));
 	editor_dock_manager->add_dock(InspectorDock::get_singleton());
+	InspectorDock::get_singleton()->connect("new_resource_created", callable_mp(this, &EditorNode::_new_resource_created));
 
 	memnew(NodeDock);
 	editor_dock_manager->add_dock(NodeDock::get_singleton());

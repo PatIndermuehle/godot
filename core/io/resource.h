@@ -133,7 +133,7 @@ public:
 	virtual Error copy_from(const Ref<Resource> &p_resource);
 	virtual void reload_from_file();
 
-	void set_sub_resources_paths(const String &p_owner_path);
+	Array get_sub_resources();
 	void emit_changed();
 	void connect_changed(const Callable &p_callable, uint32_t p_flags = 0);
 	void disconnect_changed(const Callable &p_callable);

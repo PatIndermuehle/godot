@@ -37,28 +37,35 @@
 #include "core/variant/container_type_validate.h"
 #include "scene/main/node.h" //only so casting works
 
-void Resource::set_sub_resources_paths(const String &p_owner_path) {
+Array Resource::get_sub_resources() {
 	List<PropertyInfo> props;
 	get_property_list(&props);
 
-	for (const PropertyInfo &E : props) {
-		Variant found_var = get(E.name);
-		Ref<Resource> found_resource = found_var;
+	Array sub_resources_array;
 
-		if (found_resource.is_valid() && found_resource->get_path().is_empty()) {
-			found_resource->set_path(p_owner_path + "::" + found_resource->generate_scene_unique_id());
-			found_resource->set_sub_resources_paths(p_owner_path);
-		} else if (found_var.is_array()) {
-			Array found_array = found_var;
-			for (int i = 0; i < found_array.size(); i++) {
-				Ref<Resource> array_item_res = found_array[i];
-				if (array_item_res.is_valid() && array_item_res->get_path().is_empty()) {
-					array_item_res->set_path(p_owner_path + "::" + array_item_res->generate_scene_unique_id());
-					array_item_res->set_sub_resources_paths(p_owner_path);
+	for (const PropertyInfo &E : props) {
+		if (E.usage & PROPERTY_USAGE_EDITOR) {
+			Variant found_var = get(E.name);
+			Ref<Resource> found_resource = found_var;
+
+			if (found_resource.is_valid()) {
+				sub_resources_array.push_back(found_resource);
+				sub_resources_array.append_array(found_resource->get_sub_resources());
+			} else if (found_var.is_array()) {
+				Array found_array = found_var;
+				for (int i = 0; i < found_array.size(); i++) {
+					Ref<Resource> array_item_res = found_array[i];
+					if (array_item_res.is_valid()) {
+						sub_resources_array.push_back(array_item_res);
+						sub_resources_array.append_array(array_item_res->get_sub_resources());
+					}
 				}
 			}
+			// TODO: add support of dictionary
 		}
 	}
+
+	return sub_resources_array;
 }
 
 void Resource::emit_changed() {

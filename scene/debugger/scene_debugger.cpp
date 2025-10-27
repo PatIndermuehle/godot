@@ -47,6 +47,10 @@
 #include "scene/theme/theme_db.h"
 #include "servers/audio/audio_server.h"
 
+// TODO: we are not allowed to introduce editor dependencies here.
+// I did this so the code for generating new resources matches the one in Resource picker
+#include "editor/editor_node.h"
+
 #ifndef PHYSICS_2D_DISABLED
 #include "scene/2d/physics/collision_object_2d.h"
 #include "scene/2d/physics/collision_polygon_2d.h"
@@ -350,6 +354,40 @@ Error SceneDebugger::_msg_live_res_call(const Array &p_args) {
 	return OK;
 }
 
+Error SceneDebugger::_msg_live_new_resource_created(const Array &p_args) {
+	ERR_FAIL_COND_V(p_args.size() < 3, ERR_INVALID_DATA);
+	String class_name = p_args[0];
+	String new_resource_path = p_args[1];
+	Vector<String> sub_resources_paths = p_args[2];
+
+	// This part must be the same as in the EditorResourcePicker
+	Variant obj;
+	if (ScriptServer::is_global_class(class_name)) {
+		obj = EditorNode::get_editor_data().script_class_instance(class_name);
+	} else {
+		obj = ClassDB::instantiate(class_name);
+	}
+
+	if (!obj) {
+		obj = EditorNode::get_editor_data().instantiate_custom_type(class_name, "Resource");
+	}
+
+	Resource *new_resource = Object::cast_to<Resource>(obj);
+	new_resource->set_path(new_resource_path, true);
+	EditorNode::get_editor_data().instantiate_object_properties(obj);
+
+	Array sub_resources = new_resource->get_sub_resources();
+	for (size_t i = 0; i < sub_resources.size(); i++) {
+		Ref<Resource> sub_resource_item = sub_resources[i];
+		sub_resource_item->set_path(sub_resources_paths[i]);
+	}
+
+	// Prevent freeing of the object
+	last_received_resource = new_resource;
+
+	return OK;
+}
+
 Error SceneDebugger::_msg_live_create_node(const Array &p_args) {
 	ERR_FAIL_COND_V(p_args.size() < 3, ERR_INVALID_DATA);
 	LiveEditor::get_singleton()->_create_node_func(p_args[0], p_args[1], p_args[2]);
@@ -568,6 +606,7 @@ void SceneDebugger::_init_message_handlers() {
 	message_handlers["live_res_prop"] = _msg_live_res_prop;
 	message_handlers["live_node_call"] = _msg_live_node_call;
 	message_handlers["live_res_call"] = _msg_live_res_call;
+	message_handlers["live_new_resource_created"] = _msg_live_new_resource_created;
 	message_handlers["live_create_node"] = _msg_live_create_node;
 	message_handlers["live_instantiate_node"] = _msg_live_instantiate_node;
 	message_handlers["live_remove_node"] = _msg_live_remove_node;

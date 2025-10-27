@@ -151,6 +151,10 @@ void EditorResourcePicker::_resource_changed() {
 	_update_resource();
 }
 
+void EditorResourcePicker::_new_resource_created(const Ref<Resource> p_resource) {
+	emit_signal(SNAME("new_resource_created"), p_resource);
+}
+
 void EditorResourcePicker::_file_selected(const String &p_path) {
 	Ref<Resource> loaded_resource = ResourceLoader::load(p_path);
 	ERR_FAIL_COND_MSG(loaded_resource.is_null(), "Cannot load resource from path '" + p_path + "'.");
@@ -516,13 +520,19 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 			Resource *resp = Object::cast_to<Resource>(obj);
 			ERR_BREAK(!resp);
 			resp->set_path(_get_owner_path(this) + "::" + resp->generate_scene_unique_id()); // Assign a base path for built-in Resources.
-			resp->set_sub_resources_paths(_get_owner_path(this)); // Assign a base path for all built-in Sub-Resources.
 
 			EditorNode::get_editor_data().instantiate_object_properties(obj);
+
+			Array sub_resources = resp->get_sub_resources();
+			for (size_t i = 0; i < sub_resources.size(); i++) {
+				Ref<Resource> sub_resource_item = sub_resources[i];
+				sub_resource_item->set_path(_get_owner_path(this) + "::" + resp->generate_scene_unique_id()); // Assign a base path for all built-in Sub-Resources.
+			}
 
 			// Prevent freeing of the object until the end of the update of the resource (GH-88286).
 			Ref<Resource> old_edited_resource = edited_resource;
 			edited_resource = Ref<Resource>(resp);
+			_new_resource_created(resp);
 			_resource_changed();
 		} break;
 	}
@@ -931,6 +941,7 @@ void EditorResourcePicker::_bind_methods() {
 
 	ADD_SIGNAL(MethodInfo("resource_selected", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), PropertyInfo(Variant::BOOL, "inspect")));
 	ADD_SIGNAL(MethodInfo("resource_changed", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
+	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
 }
 
 void EditorResourcePicker::_notification(int p_what) {

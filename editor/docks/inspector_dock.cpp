@@ -399,6 +399,10 @@ void InspectorDock::_resource_selected(const Ref<Resource> &p_res, const String 
 	EditorNode::get_singleton()->push_item(r.operator->(), p_property);
 }
 
+void InspectorDock::_new_resource_created(const Ref<Resource> p_resource) {
+	emit_signal(SNAME("new_resource_created"), p_resource);
+}
+
 void InspectorDock::_files_moved(const String &p_old_file, const String &p_new_file) {
 	// Because only the file name is shown, we care about changes on the file name.
 	if (p_old_file.get_file() == p_new_file.get_file()) {
@@ -504,6 +508,7 @@ void InspectorDock::_bind_methods() {
 	ClassDB::bind_method("apply_script_properties", &InspectorDock::apply_script_properties);
 
 	ADD_SIGNAL(MethodInfo("request_help"));
+	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
 }
 
 void InspectorDock::edit_resource(const Ref<Resource> &p_resource) {
@@ -878,6 +883,7 @@ InspectorDock::InspectorDock(EditorData &p_editor_data) {
 	inspector->set_use_filter(true);
 
 	inspector->connect("resource_selected", callable_mp(this, &InspectorDock::_resource_selected));
+	inspector->connect("new_resource_created", callable_mp(this, &InspectorDock::_new_resource_created));
 
 	FileSystemDock::get_singleton()->connect("files_moved", callable_mp(this, &InspectorDock::_files_moved));
 

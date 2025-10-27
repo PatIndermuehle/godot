@@ -1564,6 +1564,28 @@ void ScriptEditorDebugger::_property_changed(Object *p_base, const StringName &p
 	}
 }
 
+void ScriptEditorDebugger::_new_resource_created(const Ref<Resource> p_resource) {
+	Ref<Script> script = p_resource->get_script();
+	Array sub_resources = p_resource->get_sub_resources();
+
+	String new_resource_path = p_resource->get_path();
+	Vector<String> sub_resources_paths;
+	for (size_t i = 0; i < sub_resources.size(); i++) {
+		Ref<Resource> sub_resource_item = sub_resources[i];
+		sub_resources_paths.push_back(sub_resource_item->get_path());
+	}
+
+	if (script.is_valid()) {
+		String class_name = script->get_global_name();
+		Array msg = { class_name, new_resource_path, sub_resources_paths };
+		_put_msg("scene:live_new_resource_created", msg);
+	} else {
+		String class_name = p_resource->get_class_name();
+		Array msg = { class_name, new_resource_path, sub_resources_paths };
+		_put_msg("scene:live_new_resource_created", msg);
+	}
+}
+
 bool ScriptEditorDebugger::is_move_to_foreground() const {
 	return move_to_foreground;
 }

@@ -269,6 +269,10 @@ void EditorPropertyArray::_property_changed(const String &p_property, Variant p_
 	}
 }
 
+void EditorPropertyArray::_new_resource_created(const Ref<Resource> p_resource) {
+	emit_signal(SNAME("new_resource_created"), p_resource);
+}
+
 void EditorPropertyArray::_change_type(Object *p_button, int p_slot_index) {
 	Button *button = Object::cast_to<Button>(p_button);
 	changing_type_index = p_slot_index;
@@ -511,6 +515,7 @@ void EditorPropertyArray::update_property() {
 				new_prop->set_use_folding(is_using_folding());
 				new_prop->connect(SNAME("property_changed"), callable_mp(this, &EditorPropertyArray::_property_changed));
 				new_prop->connect(SNAME("object_id_selected"), callable_mp(this, &EditorPropertyArray::_object_id_selected));
+				new_prop->connect(SNAME("new_resource_created"), callable_mp(this, &EditorPropertyArray::_new_resource_created));
 				new_prop->set_h_size_flags(SIZE_EXPAND_FILL);
 				new_prop->set_read_only(is_read_only());
 				slot.prop->add_sibling(new_prop, false);
@@ -1004,6 +1009,10 @@ void EditorPropertyDictionary::_property_changed(const String &p_property, Varia
 	}
 }
 
+void EditorPropertyDictionary::_new_resource_created(const Ref<Resource> p_resource) {
+	emit_signal(SNAME("new_resource_created"), p_resource);
+}
+
 void EditorPropertyDictionary::_change_type(Object *p_button, int p_slot_index) {
 	Button *button = Object::cast_to<Button>(p_button);
 	int index = slots[p_slot_index].index;
@@ -1393,6 +1402,7 @@ void EditorPropertyDictionary::update_property() {
 				new_prop->set_use_folding(is_using_folding());
 				new_prop->connect(SNAME("property_changed"), callable_mp(this, &EditorPropertyDictionary::_property_changed));
 				new_prop->connect(SNAME("object_id_selected"), callable_mp(this, &EditorPropertyDictionary::_object_id_selected));
+				new_prop->connect(SNAME("new_resource_created"), callable_mp(this, &EditorPropertyDictionary::_new_resource_created));
 				new_prop->set_h_size_flags(SIZE_EXPAND_FILL);
 				if (slot.index != EditorPropertyDictionaryObject::NEW_KEY_INDEX && slot.index != EditorPropertyDictionaryObject::NEW_VALUE_INDEX) {
 					new_prop->set_draw_label(false);

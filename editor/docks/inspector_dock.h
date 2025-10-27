@@ -124,6 +124,7 @@ class InspectorDock : public EditorDock {
 
 	void _info_pressed();
 	void _resource_created();
+	void _new_resource_created(const Ref<Resource> p_resource);
 	void _resource_selected(const Ref<Resource> &p_res, const String &p_property);
 	void _files_moved(const String &p_old_file, const String &p_new_file);
 	void _edit_forward();
