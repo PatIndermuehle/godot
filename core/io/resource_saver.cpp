@@ -97,7 +97,12 @@ void ResourceFormatSaver::_bind_methods() {
 	GDVIRTUAL_BIND(_recognize_path, "resource", "path");
 }
 
-Error ResourceSaver::save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags) {
+Error ResourceSaver::save(const Ref<Resource>& p_resource, const String& p_path, uint32_t p_flags) {
+	HashMap<String, String> resource_remaps;
+	return save(p_resource, resource_remaps, p_path, p_flags);
+}
+
+Error ResourceSaver::save(const Ref<Resource> &p_resource, HashMap<String, String> &p_resource_remaps, const String &p_path, uint32_t p_flags) {
 	ERR_FAIL_COND_V_MSG(p_resource.is_null(), ERR_INVALID_PARAMETER, vformat("Can't save empty resource to path '%s'.", p_path));
 	String path = p_path;
 	if (path.is_empty()) {
@@ -126,6 +131,11 @@ Error ResourceSaver::save(const Ref<Resource> &p_resource, const String &p_path,
 		}
 
 		err = saver[i]->save(p_resource, path, p_flags);
+
+		for (KeyValue<String, String> item : saver[i]->remaps) {
+			p_resource_remaps.insert(item.key, item.value);
+		}
+		saver[i]->remaps.clear();
 
 		if (err == OK) {
 #ifdef TOOLS_ENABLED

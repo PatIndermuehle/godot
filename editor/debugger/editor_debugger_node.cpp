@@ -829,6 +829,16 @@ void EditorDebuggerNode::_new_resource_created(const Ref<Resource> p_resource) {
 	});
 }
 
+void EditorDebuggerNode::_resource_paths_remapped(const HashMap<String, String> &p_resource_remaps) {
+	if (!singleton) {
+		return;
+	}
+
+	_for_all(singleton->tabs, [&](ScriptEditorDebugger *dbg) {
+		dbg->_resource_paths_remapped(p_resource_remaps);
+	});
+}
+
 // LiveDebug
 void EditorDebuggerNode::set_live_debugging(bool p_enabled) {
 	_for_all(tabs, [&](ScriptEditorDebugger *dbg) {
