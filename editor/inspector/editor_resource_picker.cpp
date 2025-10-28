@@ -36,6 +36,7 @@
 #include "editor/docks/scene_tree_dock.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
+#include "editor/editor_undo_redo_manager.h"
 #include "editor/gui/editor_file_dialog.h"
 #include "editor/gui/editor_quick_open_dialog.h"
 #include "editor/inspector/editor_inspector.h"
@@ -54,8 +55,38 @@ static bool _has_sub_resources(const Ref<Resource> &p_res) {
 	List<PropertyInfo> property_list;
 	p_res->get_property_list(&property_list);
 	for (const PropertyInfo &p : property_list) {
-		if (p.type == Variant::OBJECT && p.hint == PROPERTY_HINT_RESOURCE_TYPE && !(p.usage & PROPERTY_USAGE_NEVER_DUPLICATE) && p_res->get(p.name).get_validated_object()) {
-			return true;
+		if (!(p.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
+			if (p.type == Variant::OBJECT && p.hint == PROPERTY_HINT_RESOURCE_TYPE && p_res->get(p.name).get_validated_object()) {
+				return true;
+			}
+
+			Variant gotten_value = p_res->get(p.name);
+
+			if (gotten_value.is_array()) {
+				Array gotten_array = gotten_value;
+
+				for (int i = 0; i < gotten_array.size(); i++) {
+					Ref<Resource> item_res = gotten_array[i];
+					if (item_res.is_valid() && !item_res->get_path().is_empty()) {
+						return true;
+					}
+				}
+			}
+
+			if (gotten_value.is_dictionary()) {
+				Dictionary gotten_dictionary = gotten_value;
+
+				for (int i = 0; i < gotten_dictionary.size(); i++) {
+					Ref<Resource> item_key_res = gotten_dictionary.get_key_at_index(i);
+					if (item_key_res.is_valid() && !item_key_res->get_path().is_empty()) {
+						return true;
+					}
+					Ref<Resource> item_value_res = gotten_dictionary.get_valid(gotten_dictionary.get_key_at_index(i));
+					if (item_value_res.is_valid() && !item_value_res->get_path().is_empty()) {
+						return true;
+					}
+				}
+			}
 		}
 	}
 	return false;
@@ -1152,31 +1183,129 @@ void EditorResourcePicker::_gather_resources_to_duplicate(const Ref<Resource> p_
 	p_resource->get_property_list(&plist);
 
 	for (const PropertyInfo &E : plist) {
-		if (!(E.usage & PROPERTY_USAGE_STORAGE) || E.type != Variant::OBJECT || E.hint != PROPERTY_HINT_RESOURCE_TYPE) {
-			continue;
-		}
+		if (E.usage & PROPERTY_USAGE_STORAGE) {
+			if (E.type == Variant::OBJECT && E.hint == PROPERTY_HINT_RESOURCE_TYPE) {
+				Ref<Resource> res = p_resource->get(E.name);
+				if (!res.is_null()) {
+					TreeItem *child = p_item->create_child();
+					_gather_resources_to_duplicate(res, child, E.name);
 
-		Ref<Resource> res = p_resource->get(E.name);
-		if (res.is_null()) {
-			continue;
-		}
+					meta = child->get_metadata(0);
+					// Remember property name.
+					meta.append(E.name);
 
-		TreeItem *child = p_item->create_child();
-		_gather_resources_to_duplicate(res, child, E.name);
+					if ((E.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
+						// The resource can't be duplicated, but make it appear on the list anyway.
+						child->set_checked(0, false);
+						child->set_editable(0, false);
+					}
+				}
+			}
 
-		meta = child->get_metadata(0);
-		// Remember property name.
-		meta.append(E.name);
+			if (E.type == Variant::ARRAY) {
+				Variant gotten_value = p_resource->getvar(E.name);
 
-		if ((E.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
-			// The resource can't be duplicated, but make it appear on the list anyway.
-			child->set_checked(0, false);
-			child->set_editable(0, false);
+				if (gotten_value.is_array()) {
+					Array gotten_array = gotten_value;
+
+					for (int i = 0; i < gotten_array.size(); i++) {
+						Ref<Resource> item_res = gotten_array[i];
+						if (item_res.is_valid() && !item_res->get_path().is_empty()) {
+
+							TreeItem *child = p_item->create_child();
+							String array_index_text;
+							array_index_text += "[";
+							array_index_text += String::num(i, 0).ptr();
+							array_index_text += "]";
+
+							_gather_resources_to_duplicate(item_res, child, E.name + array_index_text);
+
+							meta = child->get_metadata(0);
+							// Remember property name.
+							meta.append(E.name);
+							meta.append(Variant::ARRAY);
+							meta.append(i);
+
+							if ((E.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
+								// The resource can't be duplicated, but make it appear on the list anyway.
+								child->set_checked(0, false);
+								child->set_editable(0, false);
+							}
+						}
+					}
+				}
+			}
+			else if (E.type == Variant::DICTIONARY) {
+				Variant gotten_value = p_resource->getvar(E.name);
+
+				if (gotten_value.is_dictionary()) {
+					Dictionary gotten_dictionary = gotten_value;
+
+					for (int i = 0; i < gotten_dictionary.size(); i++) {
+						Variant gotten_key = gotten_dictionary.get_key_at_index(i);
+						Ref<Resource> item_key_res = gotten_key;
+						Ref<Resource> item_value_res = gotten_dictionary.get_valid(gotten_key);
+						if (item_key_res.is_valid() && !item_key_res->get_path().is_empty()) {
+							TreeItem *child = p_item->create_child();
+							String dictionary_index_text;
+							dictionary_index_text += " ";
+							dictionary_index_text += TTRC("Key");
+							dictionary_index_text += "[";
+							dictionary_index_text += String::num(i, 0).ptr();
+							dictionary_index_text += "]";
+
+							_gather_resources_to_duplicate(item_key_res, child, E.name + dictionary_index_text);
+
+							meta = child->get_metadata(0);
+							// Remember property name.
+							meta.append(E.name);
+							meta.append(Variant::DICTIONARY);
+							meta.append(i);
+							meta.append(true);
+
+							if ((E.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
+								// The resource can't be duplicated, but make it appear on the list anyway.
+								child->set_checked(0, false);
+								child->set_editable(0, false);
+							}
+						}
+						if (item_value_res.is_valid() && !item_value_res->get_path().is_empty()) {
+							TreeItem *child = p_item->create_child();
+							String dictionary_index_text;
+							dictionary_index_text += " ";
+							dictionary_index_text += TTRC("Value");
+							dictionary_index_text += "[";
+							dictionary_index_text += String::num(i, 0).ptr();
+							dictionary_index_text += "]";
+
+							_gather_resources_to_duplicate(item_value_res, child, E.name + dictionary_index_text);
+
+							meta = child->get_metadata(0);
+							// Remember property name.
+							meta.append(E.name);
+							meta.append(Variant::DICTIONARY);
+							meta.append(i);
+							meta.append(false);
+
+							if ((E.usage & PROPERTY_USAGE_NEVER_DUPLICATE)) {
+								// The resource can't be duplicated, but make it appear on the list anyway.
+								child->set_checked(0, false);
+								child->set_editable(0, false);
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 }
 
 void EditorResourcePicker::_duplicate_selected_resources() {
+	Array object_list;
+	Vector<String> property_names_list;
+	Array property_values_list;
+	bool root_resource_changed = false;
+
 	for (TreeItem *item = duplicate_resources_tree->get_root(); item; item = item->get_next_in_tree()) {
 		if (!item->is_checked(0)) {
 			continue;
@@ -1190,11 +1319,131 @@ void EditorResourcePicker::_duplicate_selected_resources() {
 
 		if (meta.size() == 1) { // Root.
 			edited_resource = unique_resource;
-			_resource_changed();
-		} else {
+			root_resource_changed = true;
+		} else if (meta.size() >= 4) { // Sub-Arrays or Sub-Dictionaries
 			Array parent_meta = item->get_parent()->get_metadata(0);
 			Ref<Resource> parent = parent_meta[0];
-			parent->set(meta[1], unique_resource);
+			String property_name = meta[1];
+			Variant::Type var_type = meta[2];
+			int key_index = meta[3];
+
+			if (var_type == Variant::ARRAY) { // Sub-Arrays
+			
+				int found_index = -1;
+				for (size_t i = 0; i < object_list.size(); i++) {
+					if (object_list[i] == parent && property_names_list[i] == property_name) {
+						found_index = i;
+						break;
+					}
+				}
+
+				if (found_index != -1) {
+					property_values_list[found_index].set(key_index, unique_resource);
+				} else {
+					Array parent_resource_array = parent->get(property_name);
+					Array parent_resource_array_clone = parent_resource_array.duplicate();
+					parent_resource_array_clone.set(key_index, unique_resource);
+					object_list.push_back(parent);
+					property_names_list.push_back(property_name);
+					property_values_list.push_back(parent_resource_array_clone);
+				}
+
+			}
+			else if (var_type == Variant::DICTIONARY) { // Sub-Dictionaries
+				bool is_key = meta[4];
+
+				int found_index = -1;
+				for (size_t i = 0; i < object_list.size(); i++) {
+					if (object_list[i] == parent && property_names_list[i] == property_name) {
+						found_index = i;
+						break;
+					}
+				}
+			
+				if (found_index != -1) {
+					Dictionary found_dictionary = property_values_list[found_index];
+					Variant found_key = found_dictionary.get_key_at_index(key_index);
+
+					if (is_key) {
+						Variant found_value = found_dictionary.get_valid(found_key);
+						found_dictionary.erase(found_key);
+						found_dictionary.set(unique_resource, found_value);
+					} else {
+						found_dictionary.set(found_key, unique_resource);
+					}
+
+				} else {
+					Dictionary parent_resource_dictionary = parent->get(property_name);
+					Dictionary parent_resource_dictionary_clone = parent_resource_dictionary.duplicate();
+					Variant found_key = parent_resource_dictionary.get_key_at_index(key_index);
+
+					if (is_key) {
+						Variant found_value = parent_resource_dictionary_clone.get_valid(found_key);
+						parent_resource_dictionary_clone.erase(found_key);
+						parent_resource_dictionary_clone.set(unique_resource, found_value);
+					} else {
+						parent_resource_dictionary_clone.set(found_key, unique_resource);
+					}
+
+					object_list.push_back(parent);
+					property_names_list.push_back(property_name);
+					property_values_list.push_back(parent_resource_dictionary_clone);
+				}
+			}
+		}
+		else { // Regular properties
+			Array parent_meta = item->get_parent()->get_metadata(0);
+			Ref<Resource> parent = parent_meta[0];
+			String property_name = meta[1];
+
+			object_list.push_back(parent);
+			property_names_list.push_back(property_name);
+			property_values_list.push_back(unique_resource);
+		}
+	}
+
+	if (root_resource_changed) {
+		_change_resource_properties(object_list, property_names_list, property_values_list, false);
+		_resource_changed();
+	} else {
+		_change_resource_properties(object_list, property_names_list, property_values_list, true);
+		_update_resource();
+	}
+	
+}
+
+void EditorResourcePicker::_change_resource_properties(const Array &p_objects, const Vector<String> &p_paths, const Array &p_values, bool p_commit) {
+	ERR_FAIL_COND(p_objects.is_empty() || p_paths.is_empty() || p_values.is_empty());
+	ERR_FAIL_COND(p_objects.size() != p_paths.size() || p_paths.size() != p_values.size());
+	String names;
+	for (int i = 0; i < p_paths.size(); i++) {
+		if (i > 0) {
+			names += ",";
+		}
+		names += p_paths[i];
+	}
+
+	if (p_commit) {
+		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
+		// TRANSLATORS: This is describing a change to multiple properties at once. The parameter is a list of property names.
+		undo_redo->create_action(vformat(TTR("Set Multiple: %s"), names), UndoRedo::MERGE_ENDS);
+
+		for (int i = 0; i < p_objects.size(); i++) {
+			bool valid = false;
+			Variant target_object = p_objects[i];
+			Variant value = target_object.get(p_paths[i], &valid);
+			if (valid) {
+				undo_redo->add_undo_property(target_object, p_paths[i], value);
+				undo_redo->add_do_property(target_object, p_paths[i], p_values[i]);
+			}
+		}
+
+		undo_redo->commit_action();
+	} else {
+		for (int i = 0; i < p_objects.size(); i++) {
+			bool valid = false;
+			Variant target_object = p_objects[i];
+			target_object.set(p_paths[i], p_values[i]);
 		}
 	}
 }

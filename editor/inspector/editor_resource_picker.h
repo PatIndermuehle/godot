@@ -91,6 +91,7 @@ class EditorResourcePicker : public HBoxContainer {
 	void _resource_selected();
 	void _resource_changed();
 	void _new_resource_created(const Ref<Resource> p_resource);
+	void _change_resource_properties(const Array &p_objects, const Vector<String> &p_paths, const Array &p_values, bool p_commit);
 	void _file_selected(const String &p_path);
 
 	void _resource_saved(Object *p_resource);

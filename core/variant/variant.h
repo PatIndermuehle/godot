@@ -417,6 +417,9 @@ public:
 	_FORCE_INLINE_ bool is_array() const {
 		return type >= ARRAY;
 	}
+	_FORCE_INLINE_ bool is_dictionary() const {
+		return type >= DICTIONARY;
+	}
 	bool is_shared() const;
 	bool is_zero() const;
 	bool is_one() const;
