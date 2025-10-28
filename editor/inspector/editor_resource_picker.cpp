@@ -557,7 +557,9 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 			Array sub_resources = resp->get_sub_resources();
 			for (size_t i = 0; i < sub_resources.size(); i++) {
 				Ref<Resource> sub_resource_item = sub_resources[i];
-				sub_resource_item->set_path(_get_owner_path(this) + "::" + resp->generate_scene_unique_id()); // Assign a base path for all built-in Sub-Resources.
+				if (sub_resource_item->get_path().is_empty()) {
+					sub_resource_item->set_path(_get_owner_path(this) + "::" + resp->generate_scene_unique_id()); // Assign a base path for all built-in Sub-Resources.
+				}
 			}
 
 			// Prevent freeing of the object until the end of the update of the resource (GH-88286).

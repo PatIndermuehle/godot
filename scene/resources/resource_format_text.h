@@ -201,6 +201,7 @@ class ResourceFormatSaverTextInstance {
 	String _write_resource(const Ref<Resource> &res);
 
 public:
+	HashMap<String, String> remaps;
 	Error save(const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags = 0);
 };
 

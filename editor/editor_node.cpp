@@ -2089,7 +2089,11 @@ int EditorNode::_save_external_resources(bool p_also_save_external_data) {
 			Ref<Script> scr = res;
 			script_was_saved = scr.is_valid();
 		}
-		ResourceSaver::save(res, res->get_path(), flg);
+		HashMap<String, String> resource_remaps;
+		ResourceSaver::save(res, resource_remaps, res->get_path(), flg);
+
+		EditorDebuggerNode::get_singleton()->_resource_paths_remapped(resource_remaps);
+
 		saved++;
 	}
 
@@ -2199,7 +2203,10 @@ void EditorNode::_save_scene(String p_file, int idx) {
 	}
 	flg |= ResourceSaver::FLAG_REPLACE_SUBRESOURCE_PATHS;
 
-	err = ResourceSaver::save(sdata, p_file, flg);
+	HashMap<String, String> resource_remaps;
+	err = ResourceSaver::save(sdata, resource_remaps, p_file, flg);
+
+	EditorDebuggerNode::get_singleton()->_resource_paths_remapped(resource_remaps);
 
 	// This needs to be emitted before saving external resources.
 	emit_signal(SNAME("scene_saved"), p_file);
