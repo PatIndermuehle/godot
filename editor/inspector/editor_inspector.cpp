@@ -751,10 +751,40 @@ bool EditorPropertyRevert::can_property_revert(Object *p_object, const StringNam
 
 bool EditorPropertyRevert::is_property_value_different(Object *p_object, const Variant &p_current_value, const Variant &p_revert_value) {
 	Ref<Resource> current_resource = p_current_value;
+
+	// non-build-in resources are always revertable
+	if (current_resource.is_valid() && !current_resource->is_built_in()) {
+		return true;
+	}
+
 	if (current_resource.is_valid() && current_resource->is_built_in()) {
+
+		Ref<Resource> revert_resource = p_revert_value;
+
+		if (!revert_resource.is_valid()) {
+			return true;
+		}
+
+		Ref<Script> current_script = current_resource->get_script();
+		Ref<Script> revert_script = revert_resource->get_script();
+		if (current_script.is_valid()) {
+			if (revert_script.is_valid()) {
+				if (current_script->get_global_name() != revert_script->get_global_name()) {
+					return true;
+				}
+			}
+			else {
+				return true;
+			}
+		}
+		else if (revert_script.is_valid()) {
+			return true;
+		} else if (current_resource->get_class_name() != revert_resource->get_class_name()) {
+			return true;
+		}
+
 		List<PropertyInfo> pinfos;
 		current_resource->get_property_list(&pinfos);
-		bool can_revert = false;
 		for (const PropertyInfo &pi : pinfos) {
 			if (pi.usage & PROPERTY_USAGE_EDITOR) {
 				if (pi.name == "script") {
@@ -763,9 +793,13 @@ bool EditorPropertyRevert::is_property_value_different(Object *p_object, const V
 				if (pi.name == "resource_path") {
 					continue;
 				}
-				Variant resource_prop = current_resource->get(pi.name);
-				can_revert = can_property_revert(p_object, pi.name, &resource_prop);
-				if (can_revert) {
+				// TODO: we need to analyse what this means
+				if (pi.name == "metadata/_custom_type_script") {
+					continue;
+				}
+				Variant resource_value_prop = current_resource->get(pi.name);
+				Variant resource_revert_prop = revert_resource->get(pi.name);
+				if (is_property_value_different(p_current_value, resource_value_prop, resource_revert_prop)) {
 					return true;
 				}
 			}
@@ -780,10 +814,8 @@ bool EditorPropertyRevert::is_property_value_different(Object *p_object, const V
 		if (current_array.size() != revert_array.size()) {
 			return true;
 		}
-		bool can_revert = false;
 		for (int i = 0; i < current_array.size(); i++) {
-			can_revert = is_property_value_different(p_object, current_array[i], revert_array[i]);
-			if (can_revert) {
+			if (is_property_value_different(p_current_value, current_array[i], revert_array[i])) {
 				return true;
 			}
 		}
