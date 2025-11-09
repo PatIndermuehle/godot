@@ -260,6 +260,7 @@ public:
 	void get_script_signal_list(List<MethodInfo> *r_signals) const override;
 
 	bool get_property_default_value(const StringName &p_property, Variant &r_value) const override;
+	void replace_script_instance_with_placeholder(Variant &r_value) const;
 	void get_script_property_list(List<PropertyInfo> *r_list) const override;
 	void update_exports() override;
 
