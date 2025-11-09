@@ -2063,7 +2063,9 @@ void CSharpScript::_placeholder_erased(PlaceHolderScriptInstance *p_placeholder)
 #ifdef TOOLS_ENABLED
 void CSharpScript::_update_exports_values(HashMap<StringName, Variant> &values, List<PropertyInfo> &propnames) {
 	for (const KeyValue<StringName, Variant> &E : exported_members_defval_cache) {
-		values[E.key] = E.value;
+		// We have to duplicate default values, otherwise changes in the editor can bleed into the cache
+		values[E.key] = E.value.duplicate_deep(RESOURCE_DEEP_DUPLICATE_ALL);
+		replace_script_instance_with_placeholder(values[E.key]);
 	}
 
 	for (const PropertyInfo &prop_info : exported_members_cache) {
@@ -2644,6 +2646,7 @@ bool CSharpScript::get_property_default_value(const StringName &p_property, Vari
 	if (E) {
 		// We have to duplicate default values, otherwise changes in the editor can bleed into the cache
 		r_value = E->value.duplicate_deep(RESOURCE_DEEP_DUPLICATE_ALL);
+		replace_script_instance_with_placeholder(r_value);
 		return true;
 	}
 
@@ -2653,6 +2656,41 @@ bool CSharpScript::get_property_default_value(const StringName &p_property, Vari
 
 #endif
 	return false;
+}
+
+void CSharpScript::replace_script_instance_with_placeholder(Variant &r_value) const {
+	Ref<Resource> res_value = r_value;
+	if (res_value.is_valid() && res_value->get_script() && res_value->get_script_instance()) {
+		List<Pair<StringName, Variant>> value_map;
+		res_value->get_script_instance()->get_property_state(value_map);
+
+		Ref<Script> found_script = res_value->get_script();
+		res_value->set_script_instance(found_script->placeholder_instance_create(res_value.ptr()));
+
+		for (Pair<StringName, Variant> pair : value_map) {
+			res_value->get_script_instance()->set(pair.first, pair.second);
+			replace_script_instance_with_placeholder(pair.second);
+		}
+
+	} else if (r_value.is_array()) {
+		Array array_value = r_value;
+		for (int i = 0; i < array_value.size(); i++) {
+			Ref<Resource> res_array_value = array_value[i];
+
+			if (res_array_value.is_valid() && res_array_value->get_script() && res_array_value->get_script_instance()) {
+				List<Pair<StringName, Variant>> value_map;
+				res_array_value->get_script_instance()->get_property_state(value_map);
+
+				Ref<Script> found_script = res_array_value->get_script();
+				res_array_value->set_script_instance(found_script->placeholder_instance_create(res_array_value.ptr()));
+
+				for (Pair<StringName, Variant> pair : value_map) {
+					res_array_value->get_script_instance()->set(pair.first, pair.second);
+					replace_script_instance_with_placeholder(pair.second);
+				}
+			}
+		}
+	}
 }
 
 void CSharpScript::update_exports() {
