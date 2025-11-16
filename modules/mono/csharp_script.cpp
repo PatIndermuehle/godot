@@ -2691,6 +2691,41 @@ void CSharpScript::replace_script_instance_with_placeholder(Variant &r_value) co
 			}
 		}
 	}
+	else if (r_value.is_dictionary()) {
+		Dictionary dictionary_value = r_value;
+		for (int i = 0; i < dictionary_value.size(); i++) {
+			Ref<Resource> res_dict_value = dictionary_value.get_key_at_index(i);
+
+			if (res_dict_value.is_valid() && res_dict_value->get_script() && res_dict_value->get_script_instance()) {
+				List<Pair<StringName, Variant>> value_map;
+				res_dict_value->get_script_instance()->get_property_state(value_map);
+
+				Ref<Script> found_script = res_dict_value->get_script();
+				res_dict_value->set_script_instance(found_script->placeholder_instance_create(res_dict_value.ptr()));
+
+				for (Pair<StringName, Variant> pair : value_map) {
+					res_dict_value->get_script_instance()->set(pair.first, pair.second);
+					replace_script_instance_with_placeholder(pair.second);
+				}
+			}
+		}
+		for (int i = 0; i < dictionary_value.size(); i++) {
+			Ref<Resource> res_dict_value = dictionary_value.get_valid(dictionary_value.get_key_at_index(i));
+
+			if (res_dict_value.is_valid() && res_dict_value->get_script() && res_dict_value->get_script_instance()) {
+				List<Pair<StringName, Variant>> value_map;
+				res_dict_value->get_script_instance()->get_property_state(value_map);
+
+				Ref<Script> found_script = res_dict_value->get_script();
+				res_dict_value->set_script_instance(found_script->placeholder_instance_create(res_dict_value.ptr()));
+
+				for (Pair<StringName, Variant> pair : value_map) {
+					res_dict_value->get_script_instance()->set(pair.first, pair.second);
+					replace_script_instance_with_placeholder(pair.second);
+				}
+			}
+		}
+	}
 }
 
 void CSharpScript::update_exports() {
