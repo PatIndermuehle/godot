@@ -810,7 +810,6 @@ bool EditorPropertyRevert::is_property_value_different(Object *p_object, const V
 		Array current_array = p_current_value;
 		Array revert_array = p_revert_value;
 
-		// TODO: what if we get array nil here ?!?
 		if (current_array.size() != revert_array.size()) {
 			return true;
 		}
@@ -820,7 +819,27 @@ bool EditorPropertyRevert::is_property_value_different(Object *p_object, const V
 			}
 		}
 		return false;
-	} else {
+	} else if (p_current_value.is_dictionary()) {
+		Dictionary current_dictionary = p_current_value;
+		Dictionary revert_dictionary = p_revert_value;
+
+		if (current_dictionary.size() != revert_dictionary.size()) {
+			return true;
+		}
+		for (int i = 0; i < current_dictionary.size(); i++) {
+			if (is_property_value_different(p_current_value, current_dictionary.get_key_at_index(i), revert_dictionary.get_key_at_index(i))) {
+				return true;
+			}
+		}
+		for (int i = 0; i < current_dictionary.size(); i++) {
+			if (is_property_value_different(p_current_value, current_dictionary.get_valid(current_dictionary.get_key_at_index(i)),
+				revert_dictionary.get_valid(revert_dictionary.get_key_at_index(i)))) {
+				return true;
+			}
+		}
+		return false;
+	}
+	else {
 		return PropertyUtils::is_property_value_different(p_object, p_current_value, p_revert_value);
 	}
 }

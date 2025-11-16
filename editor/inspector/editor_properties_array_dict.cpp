@@ -996,14 +996,14 @@ void EditorPropertyDictionary::initialize_dictionary(Variant &p_dictionary) {
 	}
 }
 
-void EditorPropertyDictionary::_property_changed(const String &p_property, Variant p_value, const String &p_name, bool p_changing) {
+void EditorPropertyDictionary::_property_changed(const String &p_property, Variant p_value, const String &p_name, bool p_changing, bool p_commited) {
 	if (p_value.get_type() == Variant::OBJECT && p_value.is_null()) {
 		p_value = Variant(); // `EditorResourcePicker` resets to `Ref<Resource>()`. See GH-82716.
 	}
 
 	object->set(p_property, p_value);
 	bool new_item_or_key = !p_property.begins_with("indices");
-	emit_changed(get_edited_property(), object->get_dict(), p_name, p_changing || new_item_or_key);
+	emit_changed(get_edited_property(), object->get_dict(), p_name, p_changing || new_item_or_key, p_commited);
 	if (new_item_or_key) {
 		update_property();
 	}
