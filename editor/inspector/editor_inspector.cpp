@@ -745,6 +745,10 @@ bool EditorPropertyRevert::can_property_revert(Object *p_object, const StringNam
 	}
 	Variant current_value = p_custom_current_value ? *p_custom_current_value : p_object->get(p_property);
 
+	if (p_property == "script") {
+		return false;
+	}
+
 	return is_property_value_different(p_object, current_value, revert_value);
 }
 
