@@ -645,7 +645,7 @@ String EditorResourcePicker::_get_owner_path(Node *p_node) const {
 
 	Node *node = Object::cast_to<Node>(obj);
 	if (node) {
-		if (node->get_scene_file_path().is_empty()) {
+		if (node->get_owner()) {
 			node = node->get_owner();
 		}
 		if (node) {
