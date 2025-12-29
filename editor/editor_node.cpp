@@ -1663,7 +1663,7 @@ void EditorNode::save_resource_as(const Ref<Resource> &p_resource, const String 
 			int srpos = path.find("::");
 			if (srpos != -1) {
 				String base = path.substr(0, srpos);
-				if (!base.is_resource_file() && !get_edited_scene() || get_edited_scene()->get_scene_file_path() != base) {
+				if (!base.is_resource_file() && (!get_edited_scene() || get_edited_scene()->get_scene_file_path() != base)) {
 					show_warning(TTR("This resource can't be saved because it does not belong to the edited scene. Make it unique first."));
 					return;
 				}
