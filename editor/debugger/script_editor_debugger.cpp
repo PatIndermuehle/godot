@@ -1586,18 +1586,9 @@ void ScriptEditorDebugger::_new_resource_created(const Ref<Resource> p_resource)
 	}
 }
 
-void ScriptEditorDebugger::_resource_paths_remapped(const HashMap<String, String> &p_resource_remaps) {
-
-	Array keys_array;
-	Array values_array;
-
-	for (KeyValue<String, String> item : p_resource_remaps) {
-		keys_array.push_back(item.key);
-		values_array.push_back(item.value);
-	}
-
-	Array msg = { keys_array, values_array };
-	_put_msg("scene:live_resource_paths_remapped", msg);
+void ScriptEditorDebugger::_resource_path_changed(const String &p_path_before, const String &p_path_after) {
+	Array msg = { p_path_before, p_path_after };
+	_put_msg("scene:live_resource_path_changed", msg);
 }
 
 bool ScriptEditorDebugger::is_move_to_foreground() const {

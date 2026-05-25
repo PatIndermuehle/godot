@@ -108,7 +108,7 @@ private:
 	static Error _msg_live_node_call(const Array &p_args);
 	static Error _msg_live_res_call(const Array &p_args);
 	static Error _msg_live_new_resource_created(const Array &p_args);
-	static Error _msg_live_resource_paths_remapped(const Array &p_args);
+	static Error _msg_live_resource_path_changed(const Array &p_args);
 	static Error _msg_live_create_node(const Array &p_args);
 	static Error _msg_live_instantiate_node(const Array &p_args);
 	static Error _msg_live_remove_node(const Array &p_args);

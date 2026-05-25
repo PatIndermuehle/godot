@@ -418,7 +418,7 @@ public:
 		return type >= ARRAY;
 	}
 	_FORCE_INLINE_ bool is_dictionary() const {
-		return type >= DICTIONARY;
+		return type == DICTIONARY;
 	}
 	bool is_shared() const;
 	bool is_zero() const;

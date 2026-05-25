@@ -250,7 +250,7 @@ void EditorPropertyArray::initialize_array(Variant &p_array) {
 	}
 }
 
-void EditorPropertyArray::_property_changed(const String &p_property, Variant p_value, const String &p_name, bool p_changing, bool p_commited) {
+void EditorPropertyArray::_property_changed(const String &p_property, Variant p_value, const String &p_name, bool p_changing) {
 	if (!p_property.begins_with("indices")) {
 		return;
 	}
@@ -263,7 +263,7 @@ void EditorPropertyArray::_property_changed(const String &p_property, Variant p_
 
 	Variant array = object->get_array().duplicate();
 	array.set(index, p_value);
-	emit_changed(get_edited_property(), array, p_name, p_changing, p_commited);
+	emit_changed(get_edited_property(), array, p_name, p_changing);
 	if (p_changing) {
 		object->set_array(array);
 	}
@@ -996,14 +996,14 @@ void EditorPropertyDictionary::initialize_dictionary(Variant &p_dictionary) {
 	}
 }
 
-void EditorPropertyDictionary::_property_changed(const String &p_property, Variant p_value, const String &p_name, bool p_changing, bool p_commited) {
+void EditorPropertyDictionary::_property_changed(const String &p_property, Variant p_value, const String &p_name, bool p_changing) {
 	if (p_value.get_type() == Variant::OBJECT && p_value.is_null()) {
 		p_value = Variant(); // `EditorResourcePicker` resets to `Ref<Resource>()`. See GH-82716.
 	}
 
 	object->set(p_property, p_value);
 	bool new_item_or_key = !p_property.begins_with("indices");
-	emit_changed(get_edited_property(), object->get_dict(), p_name, p_changing || new_item_or_key, p_commited);
+	emit_changed(get_edited_property(), object->get_dict(), p_name, p_changing || new_item_or_key);
 	if (new_item_or_key) {
 		update_property();
 	}

@@ -1913,11 +1913,12 @@ Error ResourceFormatSaverTextInstance::save(const String &p_path, const Ref<Reso
 			line += "type=\"" + _resource_get_class(res) + "\" id=\"" + id;
 			f->store_line(line + "\"]");
 			if (takeover_paths) {
-				String new_path = p_path + "::" + id;
-				if (new_path != res->get_path()) {
-					remaps.insert(res->get_path(), new_path);
+				String old_path = res->get_path();
+				res->set_path(p_path + "::" + id, true);
+
+				if (resource_path_changed_callback) {
+					resource_path_changed_callback(old_path, res->get_path());
 				}
-				res->set_path(new_path, true);
 			}
 
 			internal_resources[res] = id;
@@ -2176,11 +2177,8 @@ Error ResourceFormatSaverText::save(const Ref<Resource> &p_resource, const Strin
 	}
 
 	ResourceFormatSaverTextInstance saver;
-	Error error = saver.save(p_path, p_resource, p_flags);
-
-	remaps = saver.remaps;
-
-	return error;
+	saver.resource_path_changed_callback = resource_path_changed_callback;
+	return saver.save(p_path, p_resource, p_flags);
 }
 
 Error ResourceFormatSaverText::set_uid(const String &p_path, ResourceUID::ID p_uid) {

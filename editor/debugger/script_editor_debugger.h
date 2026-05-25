@@ -259,7 +259,7 @@ private:
 	void _method_changed(Object *p_base, const StringName &p_name, const Variant **p_args, int p_argcount);
 	void _property_changed(Object *p_base, const StringName &p_property, const Variant &p_value);
 	void _new_resource_created(const Ref<Resource> p_resource);
-	void _resource_paths_remapped(const HashMap<String, String> &p_resource_remaps);
+	void _resource_path_changed(const String &p_path_before, const String &p_path_after);
 
 	void _error_activated();
 	void _error_selected();

@@ -39,6 +39,7 @@ Ref<ResourceFormatSaver> ResourceSaver::saver[MAX_SAVERS];
 int ResourceSaver::saver_count = 0;
 bool ResourceSaver::timestamp_on_save = false;
 ResourceSavedCallback ResourceSaver::save_callback = nullptr;
+ResourcePathChangedCallback ResourceSaver::resource_path_changed_callback = nullptr;
 ResourceSaverGetResourceIDForPath ResourceSaver::save_get_id_for_path = nullptr;
 
 Error ResourceFormatSaver::save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags) {
@@ -89,6 +90,10 @@ bool ResourceFormatSaver::recognize_path(const Ref<Resource> &p_resource, const 
 	return false;
 }
 
+void ResourceFormatSaver::set_resource_path_changed_callback(ResourcePathChangedCallback p_callback) {
+	resource_path_changed_callback = p_callback;
+}
+
 void ResourceFormatSaver::_bind_methods() {
 	GDVIRTUAL_BIND(_save, "resource", "path", "flags");
 	GDVIRTUAL_BIND(_set_uid, "path", "uid");
@@ -97,12 +102,7 @@ void ResourceFormatSaver::_bind_methods() {
 	GDVIRTUAL_BIND(_recognize_path, "resource", "path");
 }
 
-Error ResourceSaver::save(const Ref<Resource>& p_resource, const String& p_path, uint32_t p_flags) {
-	HashMap<String, String> resource_remaps;
-	return save(p_resource, resource_remaps, p_path, p_flags);
-}
-
-Error ResourceSaver::save(const Ref<Resource> &p_resource, HashMap<String, String> &p_resource_remaps, const String &p_path, uint32_t p_flags) {
+Error ResourceSaver::save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags) {
 	ERR_FAIL_COND_V_MSG(p_resource.is_null(), ERR_INVALID_PARAMETER, vformat("Can't save empty resource to path '%s'.", p_path));
 	String path = p_path;
 	if (path.is_empty()) {
@@ -131,11 +131,6 @@ Error ResourceSaver::save(const Ref<Resource> &p_resource, HashMap<String, Strin
 		}
 
 		err = saver[i]->save(p_resource, path, p_flags);
-
-		for (KeyValue<String, String> item : saver[i]->remaps) {
-			p_resource_remaps.insert(item.key, item.value);
-		}
-		saver[i]->remaps.clear();
 
 		if (err == OK) {
 #ifdef TOOLS_ENABLED
@@ -184,6 +179,16 @@ void ResourceSaver::set_save_callback(ResourceSavedCallback p_callback) {
 	save_callback = p_callback;
 }
 
+void ResourceSaver::set_resource_path_changed_callback(ResourcePathChangedCallback p_callback) {
+	resource_path_changed_callback = p_callback;
+}
+
+void ResourceSaver::resource_path_changed(const String &p_path_before, const String &p_path_after) {
+	if (resource_path_changed_callback) {
+		resource_path_changed_callback(p_path_before, p_path_after);
+	}
+}
+
 void ResourceSaver::get_recognized_extensions(const Ref<Resource> &p_resource, List<String> *p_extensions) {
 	ERR_FAIL_COND_MSG(p_resource.is_null(), "It's not a reference to a valid Resource object.");
 	for (int i = 0; i < saver_count; i++) {
@@ -204,6 +209,8 @@ void ResourceSaver::add_resource_format_saver(Ref<ResourceFormatSaver> p_format_
 	} else {
 		saver[saver_count++] = p_format_saver;
 	}
+
+	p_format_saver->set_resource_path_changed_callback(resource_path_changed);
 }
 
 void ResourceSaver::remove_resource_format_saver(Ref<ResourceFormatSaver> p_format_saver) {
@@ -225,6 +232,8 @@ void ResourceSaver::remove_resource_format_saver(Ref<ResourceFormatSaver> p_form
 	}
 	saver[saver_count - 1].unref();
 	--saver_count;
+
+	p_format_saver->set_resource_path_changed_callback(nullptr);
 }
 
 Ref<ResourceFormatSaver> ResourceSaver::_find_custom_resource_format_saver(const String &path) {

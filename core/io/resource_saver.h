@@ -33,6 +33,9 @@
 #include "core/io/resource.h"
 #include "core/object/gdvirtual.gen.inc"
 
+typedef void (*ResourceSavedCallback)(Ref<Resource> p_resource, const String &p_path);
+typedef void (*ResourcePathChangedCallback)(const String &p_path_before, const String &p_path_after);
+
 class ResourceFormatSaver : public RefCounted {
 	GDCLASS(ResourceFormatSaver, RefCounted);
 
@@ -44,20 +47,19 @@ protected:
 	GDVIRTUAL1RC(bool, _recognize, Ref<Resource>)
 	GDVIRTUAL1RC(Vector<String>, _get_recognized_extensions, Ref<Resource>)
 	GDVIRTUAL2RC(bool, _recognize_path, Ref<Resource>, String)
+	ResourcePathChangedCallback resource_path_changed_callback;
 
 public:
-	HashMap<String, String> remaps;
-
 	virtual Error save(const Ref<Resource> &p_resource, const String &p_path, uint32_t p_flags = 0);
 	virtual Error set_uid(const String &p_path, ResourceUID::ID p_uid);
 	virtual bool recognize(const Ref<Resource> &p_resource) const;
 	virtual void get_recognized_extensions(const Ref<Resource> &p_resource, List<String> *p_extensions) const;
 	virtual bool recognize_path(const Ref<Resource> &p_resource, const String &p_path) const;
+	void set_resource_path_changed_callback(ResourcePathChangedCallback p_callback);
 
 	virtual ~ResourceFormatSaver() {}
 };
 
-typedef void (*ResourceSavedCallback)(Ref<Resource> p_resource, const String &p_path);
 typedef ResourceUID::ID (*ResourceSaverGetResourceIDForPath)(const String &p_path, bool p_generate);
 
 class ResourceSaver {
@@ -69,6 +71,7 @@ class ResourceSaver {
 	static int saver_count;
 	static bool timestamp_on_save;
 	static ResourceSavedCallback save_callback;
+	static ResourcePathChangedCallback resource_path_changed_callback;
 	static ResourceSaverGetResourceIDForPath save_get_id_for_path;
 
 	static Ref<ResourceFormatSaver> _find_custom_resource_format_saver(const String &path);
@@ -86,7 +89,6 @@ public:
 	};
 
 	static Error save(const Ref<Resource> &p_resource, const String &p_path = "", uint32_t p_flags = (uint32_t)FLAG_NONE);
-	static Error save(const Ref<Resource> &p_resource, HashMap<String, String> &p_resource_remaps, const String &p_path = "", uint32_t p_flags = (uint32_t)FLAG_NONE);
 	static void get_recognized_extensions(const Ref<Resource> &p_resource, List<String> *p_extensions);
 	static void add_resource_format_saver(Ref<ResourceFormatSaver> p_format_saver, bool p_at_front = false);
 	static void remove_resource_format_saver(Ref<ResourceFormatSaver> p_format_saver);
@@ -99,7 +101,10 @@ public:
 	static ResourceUID::ID get_resource_id_for_path(const String &p_path, bool p_generate = false);
 
 	static void set_save_callback(ResourceSavedCallback p_callback);
+	static void set_resource_path_changed_callback(ResourcePathChangedCallback p_callback);
 	static void set_get_resource_id_for_path(ResourceSaverGetResourceIDForPath p_callback);
+
+	static void resource_path_changed(const String &p_path_before, const String &p_path_after);
 
 	static bool add_custom_resource_format_saver(const String &script_path);
 	static void add_custom_savers();

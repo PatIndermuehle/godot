@@ -260,12 +260,12 @@ Size2 EditorProperty::get_minimum_size() const {
 	return ms;
 }
 
-void EditorProperty::emit_changed(const StringName &p_property, const Variant &p_value, const StringName &p_field, bool p_changing, bool p_commited) {
-	Variant args[5] = { p_property, p_value, p_field, p_changing, p_commited };
-	const Variant *argptrs[5] = { &args[0], &args[1], &args[2], &args[3], &args[4] };
+void EditorProperty::emit_changed(const StringName &p_property, const Variant &p_value, const StringName &p_field, bool p_changing) {
+	Variant args[4] = { p_property, p_value, p_field, p_changing };
+	const Variant *argptrs[4] = { &args[0], &args[1], &args[2], &args[3] };
 
 	cache[p_property] = p_value;
-	emit_signalp(SNAME("property_changed"), (const Variant **)argptrs, 5);
+	emit_signalp(SNAME("property_changed"), (const Variant **)argptrs, 4);
 }
 
 void EditorProperty::_notification(int p_what) {
@@ -1536,7 +1536,7 @@ void EditorProperty::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_object_and_property", "object", "property"), &EditorProperty::set_object_and_property);
 	ClassDB::bind_method(D_METHOD("set_label_reference", "control"), &EditorProperty::set_label_reference);
 
-	ClassDB::bind_method(D_METHOD("emit_changed", "property", "value", "field", "changing", "commited"), &EditorProperty::emit_changed, DEFVAL(StringName()), DEFVAL(false), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("emit_changed", "property", "value", "field", "changing"), &EditorProperty::emit_changed, DEFVAL(StringName()), DEFVAL(false));
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "label"), "set_label", "get_label");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "read_only"), "set_read_only", "is_read_only");
@@ -1551,7 +1551,7 @@ void EditorProperty::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_folding"), "set_use_folding", "is_using_folding");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "name_split_ratio"), "set_name_split_ratio", "get_name_split_ratio");
 
-	ADD_SIGNAL(MethodInfo("property_changed", PropertyInfo(Variant::STRING_NAME, "property"), PropertyInfo(Variant::NIL, "value", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NIL_IS_VARIANT), PropertyInfo(Variant::STRING_NAME, "field"), PropertyInfo(Variant::BOOL, "changing"), PropertyInfo(Variant::BOOL, "commited")));
+	ADD_SIGNAL(MethodInfo("property_changed", PropertyInfo(Variant::STRING_NAME, "property"), PropertyInfo(Variant::NIL, "value", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NIL_IS_VARIANT), PropertyInfo(Variant::STRING_NAME, "field"), PropertyInfo(Variant::BOOL, "changing")));
 	ADD_SIGNAL(MethodInfo("multiple_properties_changed", PropertyInfo(Variant::PACKED_STRING_ARRAY, "properties"), PropertyInfo(Variant::ARRAY, "value")));
 	ADD_SIGNAL(MethodInfo("new_resource_created", PropertyInfo(Variant::OBJECT, "resource", PROPERTY_HINT_RESOURCE_TYPE, "Resource")));
 	ADD_SIGNAL(MethodInfo("property_keyed", PropertyInfo(Variant::STRING_NAME, "property")));
@@ -5220,24 +5220,15 @@ void EditorInspector::_edit_set(const String &p_name, const Variant &p_value, bo
 	}
 }
 
-void EditorInspector::_property_changed(const String &p_path, const Variant &p_value, const String &p_name, bool p_changing, bool p_commited, bool p_update_all) {
+void EditorInspector::_property_changed(const String &p_path, const Variant &p_value, const String &p_name, bool p_changing, bool p_update_all) {
 	// The "changing" variable must be true for properties that trigger events as typing occurs,
 	// like "text_changed" signal. E.g. text property of Label, Button, RichTextLabel, etc.
 	if (p_changing) {
 		changing++;
 	}
 
-	if (p_commited) {
-		if (editor_property_map.has(p_path)) {
-			for (EditorProperty *E : editor_property_map[p_path]) {
-				E->update_editor_property_status();
-			}
-		}
-	}
-	else {
-		_edit_set(p_path, p_value, p_update_all, p_name);
-	}
-	
+	_edit_set(p_path, p_value, p_update_all, p_name);
+
 	if (p_changing) {
 		changing--;
 	}

@@ -528,6 +528,7 @@ private:
 
 	static void _print_handler(void *p_this, const String &p_string, bool p_error, bool p_rich);
 	static void _print_handler_impl(const String &p_string, bool p_error, bool p_rich);
+	static void _resource_path_changed(const String &p_path_before, const String &p_path_after);
 	static void _resource_saved(Ref<Resource> p_resource, const String &p_path);
 	static void _resource_loaded(Ref<Resource> p_resource, const String &p_path);
 

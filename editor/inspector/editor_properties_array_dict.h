@@ -152,7 +152,7 @@ protected:
 	virtual void _add_element();
 	virtual void _length_changed(double p_page);
 	virtual void _edit_pressed();
-	virtual void _property_changed(const String &p_property, Variant p_value, const String &p_name = "", bool p_changing = false, bool p_commited = false);
+	virtual void _property_changed(const String &p_property, Variant p_value, const String &p_name = "", bool p_changing = false);
 	virtual void _new_resource_created(const Ref<Resource> p_resource);
 	virtual void _change_type(Object *p_button, int p_slot_index);
 	virtual void _change_type_menu(int p_index);
@@ -243,7 +243,7 @@ class EditorPropertyDictionary : public EditorProperty {
 
 	void _page_changed(int p_page);
 	void _edit_pressed();
-	void _property_changed(const String &p_property, Variant p_value, const String &p_name = "", bool p_changing = false, bool p_commited = false);
+	void _property_changed(const String &p_property, Variant p_value, const String &p_name = "", bool p_changing = false);
 	void _new_resource_created(const Ref<Resource> p_resource);
 	void _change_type(Object *p_button, int p_slot_index);
 	void _change_type_menu(int p_index);

@@ -3368,9 +3368,10 @@ void EditorPropertyResource::_sub_inspector_property_keyed(const String &p_prope
 }
 
 void EditorPropertyResource::_sub_inspector_property_edited(const String &p_property) {
+	// TODO: make sure this works
 	if (String(get_edited_property()).begins_with("indices")) {
 		// This resource is an array element, propagate the change to the EditorPropertyArray
-		emit_changed(get_edited_property(), get_edited_property_value(), StringName(),false, true);
+		emit_changed(get_edited_property(), get_edited_property_value(), StringName(), false);
 	}
 	else {
 		update_editor_property_status();

@@ -2089,11 +2089,7 @@ int EditorNode::_save_external_resources(bool p_also_save_external_data) {
 			Ref<Script> scr = res;
 			script_was_saved = scr.is_valid();
 		}
-		HashMap<String, String> resource_remaps;
-		ResourceSaver::save(res, resource_remaps, res->get_path(), flg);
-
-		EditorDebuggerNode::get_singleton()->_resource_paths_remapped(resource_remaps);
-
+		ResourceSaver::save(res, res->get_path(), flg);
 		saved++;
 	}
 
@@ -2203,10 +2199,7 @@ void EditorNode::_save_scene(String p_file, int idx) {
 	}
 	flg |= ResourceSaver::FLAG_REPLACE_SUBRESOURCE_PATHS;
 
-	HashMap<String, String> resource_remaps;
-	err = ResourceSaver::save(sdata, resource_remaps, p_file, flg);
-
-	EditorDebuggerNode::get_singleton()->_resource_paths_remapped(resource_remaps);
+	err = ResourceSaver::save(sdata, p_file, flg);
 
 	// This needs to be emitted before saving external resources.
 	emit_signal(SNAME("scene_saved"), p_file);
@@ -7273,6 +7266,10 @@ void EditorNode::_set_renderer_name_save_and_restart() {
 	restart_editor();
 }
 
+void EditorNode::_resource_path_changed(const String &p_path_before, const String &p_path_after) {
+	EditorDebuggerNode::_resource_path_changed(p_path_before, p_path_after);
+}
+
 void EditorNode::_resource_saved(Ref<Resource> p_resource, const String &p_path) {
 	if (singleton->saving_resources_in_path.has(p_resource)) {
 		// This is going to be handled by save_resource_in_path when the time is right.
@@ -8866,6 +8863,7 @@ EditorNode::EditorNode() {
 	add_print_handler(&print_handler);
 
 	ResourceSaver::set_save_callback(_resource_saved);
+	ResourceSaver::set_resource_path_changed_callback(_resource_path_changed);
 	ResourceLoader::set_load_callback(_resource_loaded);
 
 	// Use the Ctrl modifier so F2 can be used to rename nodes in the scene tree dock.

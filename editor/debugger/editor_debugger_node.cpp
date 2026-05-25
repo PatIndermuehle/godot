@@ -829,13 +829,13 @@ void EditorDebuggerNode::_new_resource_created(const Ref<Resource> p_resource) {
 	});
 }
 
-void EditorDebuggerNode::_resource_paths_remapped(const HashMap<String, String> &p_resource_remaps) {
+void EditorDebuggerNode::_resource_path_changed(const String &p_path_before, const String &p_path_after) {
 	if (!singleton) {
 		return;
 	}
 
 	_for_all(singleton->tabs, [&](ScriptEditorDebugger *dbg) {
-		dbg->_resource_paths_remapped(p_resource_remaps);
+		dbg->_resource_path_changed(p_path_before, p_path_after);
 	});
 }
 

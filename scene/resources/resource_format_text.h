@@ -187,6 +187,8 @@ class ResourceFormatSaverTextInstance {
 	HashMap<Ref<Resource>, String> internal_resources;
 	bool use_compat = true;
 
+
+
 	struct ResourceSort {
 		Ref<Resource> resource;
 		String id;
@@ -201,7 +203,7 @@ class ResourceFormatSaverTextInstance {
 	String _write_resource(const Ref<Resource> &res);
 
 public:
-	HashMap<String, String> remaps;
+	ResourcePathChangedCallback resource_path_changed_callback = nullptr;
 	Error save(const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags = 0);
 };
 

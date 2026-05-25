@@ -388,21 +388,15 @@ Error SceneDebugger::_msg_live_new_resource_created(const Array &p_args) {
 	return OK;
 }
 
-Error SceneDebugger::_msg_live_resource_paths_remapped(const Array &p_args) {
+Error SceneDebugger::_msg_live_resource_path_changed(const Array &p_args) {
 	ERR_FAIL_COND_V(p_args.size() < 2, ERR_INVALID_DATA);
 
-	Array keys_array = p_args[0];
-	Array values_array = p_args[1];
+	String path_before = p_args[0];
+	String path_after = p_args[1];
 
-	ERR_FAIL_COND_V(keys_array.size() != values_array.size(), ERR_INVALID_DATA);
-
-	
-
-	for (int i = 0; i < keys_array.size(); i++) {
-		Ref<Resource> loadedResource = ResourceLoader::load(keys_array[i]);
-		if (loadedResource.is_valid()) {
-			loadedResource->set_path(values_array[i]);
-		}
+	Ref<Resource> loadedResource = ResourceLoader::load(path_before);
+	if (loadedResource.is_valid()) {
+		loadedResource->set_path(path_after);
 	}
 
 	return OK;
@@ -627,7 +621,7 @@ void SceneDebugger::_init_message_handlers() {
 	message_handlers["live_node_call"] = _msg_live_node_call;
 	message_handlers["live_res_call"] = _msg_live_res_call;
 	message_handlers["live_new_resource_created"] = _msg_live_new_resource_created;
-	message_handlers["live_resource_paths_remapped"] = _msg_live_resource_paths_remapped;
+	message_handlers["live_resource_path_changed"] = _msg_live_resource_path_changed;
 	message_handlers["live_create_node"] = _msg_live_create_node;
 	message_handlers["live_instantiate_node"] = _msg_live_instantiate_node;
 	message_handlers["live_remove_node"] = _msg_live_remove_node;

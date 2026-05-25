@@ -205,7 +205,7 @@ public:
 	static void _methods_changed(void *p_ud, Object *p_base, const StringName &p_name, const Variant **p_args, int p_argcount);
 	static void _properties_changed(void *p_ud, Object *p_base, const StringName &p_property, const Variant &p_value);
 	static void _new_resource_created(const Ref<Resource> p_resource);
-	static void _resource_paths_remapped(const HashMap<String, String> &p_resource_remaps);
+	static void _resource_path_changed(const String &p_path_before, const String &p_path_after);
 
 	// LiveDebug
 	void set_live_debugging(bool p_enabled);
