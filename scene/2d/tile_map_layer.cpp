@@ -2502,7 +2502,13 @@ HashMap<Vector2i, TileSet::TerrainsPattern> TileMapLayer::terrain_fill_connect(c
 				if ((int(bit) % 2) == 0) {
 					// Side peering bits: add the constraint if the center is of the same terrain.
 					Vector2i neighbor = tile_set->get_neighbor_cell(coords, bit);
+					TileData *neighborData = get_cell_tile_data(neighbor);
 					if (cells_with_terrain_center_bit.has(neighbor)) {
+						constraints.insert(c);
+					} else if (neighborData){
+						// Else, add it anyway, but with a lower priority
+						c.set_priority(2);
+						c.set_terrain(neighborData->get_terrain());
 						constraints.insert(c);
 					}
 				} else {
