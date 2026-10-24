@@ -1852,6 +1852,22 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 	if (tile_set.is_null()) {
 		return TileSet::TerrainsPattern();
 	}
+
+	// TODO: remove this, only used for debugging
+	// print_line("p_position:" ,p_position.x,":",p_position.y);
+
+	// TODO: remove this, only used for debugging
+	/*
+	for (const TerrainConstraint &constraint : p_constraints) {
+		// print_line("constraint with pos ", constraint.get_base_cell_coords().x, ":", constraint.get_base_cell_coords().y, " terrain:" ,constraint.get_terrain(), " priority:", constraint.get_priority());
+		if (!constraint.is_center_bit()) {
+			for (const KeyValue<Vector2i, TileSet::CellNeighbor> &entry :constraint.get_overlapping_coords_and_peering_bits()) {
+				// print_line("peering-coords:",entry.key, " neighbor:", entry.value);
+			}
+		}
+	}
+	*/
+
 	// Returns all tiles compatible with the given constraints.
 	RBMap<TileSet::TerrainsPattern, int> terrain_pattern_score;
 	RBSet<TileSet::TerrainsPattern> pattern_set = tile_set->get_terrains_pattern_set(p_terrain_set);
@@ -1864,6 +1880,8 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 		const RBSet<TerrainConstraint>::Element *in_set_constraint_element = p_constraints.find(terrain_constraint);
 		if (in_set_constraint_element) {
 			if (in_set_constraint_element->get().get_terrain() != terrain_constraint.get_terrain()) {
+				// TODO: remove this
+				// print_line("terrain_pattern " ,terrain_pattern.as_array(),"gets score+",in_set_constraint_element->get().get_priority());
 				score += in_set_constraint_element->get().get_priority();
 			}
 		} else if (p_current_pattern.get_terrain() != terrain_pattern.get_terrain()) {
@@ -1880,6 +1898,9 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 				in_set_constraint_element = p_constraints.find(terrain_bit_constraint);
 				if (in_set_constraint_element) {
 					if (in_set_constraint_element->get().get_terrain() != terrain_bit_constraint.get_terrain()) {
+
+						// TODO: remove this
+						// print_line("terrain_pattern " ,terrain_pattern.as_array(),"gets score+",in_set_constraint_element->get().get_priority());
 						score += in_set_constraint_element->get().get_priority();
 					}
 				} else if (p_current_pattern.get_terrain_peering_bit(bit) != terrain_pattern.get_terrain_peering_bit(bit)) {
@@ -1892,8 +1913,14 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 			continue;
 		}
 
+		// TODO: remove this
+		// print_line("Adding pattern with terrain:",terrain_pattern.as_array(), "and score: ", score);
+
 		terrain_pattern_score[terrain_pattern] = score;
 	}
+
+	// TODO: remove this
+	// print_line("terrain_pattern_score.size:" ,terrain_pattern_score.size());
 
 	// Compute the minimum score.
 	TileSet::TerrainsPattern min_score_pattern = p_current_pattern;
@@ -1904,6 +1931,9 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 			min_score = E.value;
 		}
 	}
+
+	// TODO: remove this
+	// print_line("min_score_pattern:" , min_score_pattern.as_array());
 
 	return min_score_pattern;
 }
@@ -2412,7 +2442,9 @@ HashMap<Vector2i, TileSet::TerrainsPattern> TileMapLayer::terrain_fill_constrain
 		}
 		TileSet::TerrainsPattern pattern = _get_best_terrain_pattern_for_constraints(p_terrain_set, coords, constraints, current_pattern);
 
+		// TODO: not needed if we only look use center bits
 		// Update the constraint set with the new ones.
+		/*
 		RBSet<TerrainConstraint> new_constraints = _get_terrain_constraints_from_added_pattern(coords, p_terrain_set, pattern);
 		for (const TerrainConstraint &E_constraint : new_constraints) {
 			if (constraints.has(E_constraint)) {
@@ -2422,6 +2454,7 @@ HashMap<Vector2i, TileSet::TerrainsPattern> TileMapLayer::terrain_fill_constrain
 			c.set_priority(5);
 			constraints.insert(c);
 		}
+		*/
 
 		output[coords] = pattern;
 	}
