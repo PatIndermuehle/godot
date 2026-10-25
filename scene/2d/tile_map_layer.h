@@ -73,6 +73,10 @@ public:
 		return bit == 0;
 	}
 
+	int get_bit() const {
+		return bit;
+	}
+
 	HashMap<Vector2i, TileSet::CellNeighbor> get_overlapping_coords_and_peering_bits() const;
 
 	void set_terrain(int p_terrain) {

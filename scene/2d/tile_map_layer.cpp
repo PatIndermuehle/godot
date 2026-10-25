@@ -65,6 +65,8 @@ Vector2i TileMapLayer::_coords_to_quadrant_coords(const Vector2i &p_coords, cons
 /////////////////////////////// Debug //////////////////////////////////////////
 constexpr int TILE_MAP_DEBUG_QUADRANT_SIZE = 16;
 
+constexpr bool USE_CENTER_FOR_CONNECTION = true;
+
 void TileMapLayer::_debug_update(bool p_force_cleanup) {
 	RenderingServer *rs = RenderingServer::get_singleton();
 
@@ -370,7 +372,6 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 						prev_ci = ci;
 						prev_material = mat;
 						prev_z_index = tile_z_index;
-
 					} else {
 						// Keep the same canvas_item to draw on.
 						ci = prev_ci;
@@ -395,7 +396,6 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 						rs->canvas_item_reset_physics_interpolation(ci);
 					}
 				}
-
 			} else {
 				// Free the quadrant.
 				for (const RID &ci : rendering_quadrant->canvas_items) {
@@ -441,10 +441,10 @@ void TileMapLayer::_rendering_update(bool p_force_cleanup) {
 
 		// Updates on rendering changes.
 		if (dirty.flags[DIRTY_FLAGS_LAYER_LIGHT_MASK] ||
-				dirty.flags[DIRTY_FLAGS_LAYER_TEXTURE_FILTER] ||
-				dirty.flags[DIRTY_FLAGS_LAYER_TEXTURE_REPEAT] ||
-				dirty.flags[DIRTY_FLAGS_LAYER_SELF_MODULATE] ||
-				dirty.flags[DIRTY_FLAGS_LAYER_HIGHLIGHT_MODE]) {
+			dirty.flags[DIRTY_FLAGS_LAYER_TEXTURE_FILTER] ||
+			dirty.flags[DIRTY_FLAGS_LAYER_TEXTURE_REPEAT] ||
+			dirty.flags[DIRTY_FLAGS_LAYER_SELF_MODULATE] ||
+			dirty.flags[DIRTY_FLAGS_LAYER_HIGHLIGHT_MODE]) {
 			for (KeyValue<Vector2i, Ref<RenderingQuadrant>> &kv : rendering_quadrant_map) {
 				Ref<RenderingQuadrant> &rendering_quadrant = kv.value;
 				for (const RID &ci : rendering_quadrant->canvas_items) {
@@ -1262,7 +1262,6 @@ void TileMapLayer::_physics_draw_quadrant_debug(const RID &p_canvas_item, DebugQ
 							face_index_array.push_back(vertex2_index);
 							face_index_array.push_back(vertex3_index);
 						}
-
 					} else {
 						WARN_PRINT("Wrong shape type for a tile, should be SHAPE_CONVEX_POLYGON.");
 					}
@@ -1854,15 +1853,13 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 	}
 
 	// TODO: remove this, only used for debugging
-	// print_line("p_position:" ,p_position.x,":",p_position.y);
-
-	// TODO: remove this, only used for debugging
 	/*
+	print_line("p_position:", p_position.x, ":", p_position.y);
 	for (const TerrainConstraint &constraint : p_constraints) {
-		// print_line("constraint with pos ", constraint.get_base_cell_coords().x, ":", constraint.get_base_cell_coords().y, " terrain:" ,constraint.get_terrain(), " priority:", constraint.get_priority());
-		if (!constraint.is_center_bit()) {
-			for (const KeyValue<Vector2i, TileSet::CellNeighbor> &entry :constraint.get_overlapping_coords_and_peering_bits()) {
-				// print_line("peering-coords:",entry.key, " neighbor:", entry.value);
+		print_line("constraint with pos ", constraint.get_base_cell_coords().x, ":", constraint.get_base_cell_coords().y, " terrain:", constraint.get_terrain(), " bit:", constraint.get_bit(), " priority:", constraint.get_priority());
+		if (!USE_CENTER_FOR_CONNECTION && !constraint.is_center_bit()) {
+			for (const KeyValue<Vector2i, TileSet::CellNeighbor> &entry : constraint.get_overlapping_coords_and_peering_bits()) {
+				print_line("peering-coords:", entry.key, " neighbor:", entry.value);
 			}
 		}
 	}
@@ -1875,13 +1872,48 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 	for (TileSet::TerrainsPattern &terrain_pattern : pattern_set) {
 		int score = 0;
 
+		if (USE_CENTER_FOR_CONNECTION) {
+			TerrainConstraint terrain_constraint = TerrainConstraint(tile_set, p_position, terrain_pattern.get_terrain());
+			const RBSet<TerrainConstraint>::Element *in_set_constraint_element = p_constraints.find(terrain_constraint);
+			if (in_set_constraint_element) {
+				if (in_set_constraint_element->get().get_terrain() != terrain_constraint.get_terrain()) {
+					continue; // ignore patterns with the wrong center terrain.
+				}
+				for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
+					TileSet::CellNeighbor bit = TileSet::CellNeighbor(i);
+					if (tile_set->is_valid_terrain_peering_bit(p_terrain_set, bit)) {
+						// Check if the bit is compatible with the constraints.
+						TerrainConstraint terrain_bit_constraint = TerrainConstraint(tile_set, p_position, bit, terrain_pattern.get_terrain_peering_bit(bit));
+						in_set_constraint_element = p_constraints.find(terrain_bit_constraint);
+						if (in_set_constraint_element) {
+							if (in_set_constraint_element->get().get_terrain() != terrain_bit_constraint.get_terrain()) {
+								// TODO: remove this
+								// print_line("terrain_pattern ", terrain_pattern.as_array(), "gets score+",in_set_constraint_element->get().get_priority(), "due to terrain at bit ",in_set_constraint_element->get().get_bit(), " not being ", in_set_constraint_element->get().get_terrain());
+								score += in_set_constraint_element->get().get_priority();
+
+								if (terrain_pattern.get_terrain_peering_bit(bit) != -1) {
+									// print_line("Penalty doubled due to pattern having non null terrain bit");
+									score += in_set_constraint_element->get().get_priority();
+								}
+							}
+						}
+					}
+				}
+			} else {
+				// ignore patterns where we cannot find a contstraint for.
+				continue;
+			}
+
+			// print_line("Adding pattern with terrain:", terrain_pattern.as_array(), "and score: ", score);
+			terrain_pattern_score[terrain_pattern] = score;
+			continue;
+		}
+
 		// Check the center bit constraint.
 		TerrainConstraint terrain_constraint = TerrainConstraint(tile_set, p_position, terrain_pattern.get_terrain());
 		const RBSet<TerrainConstraint>::Element *in_set_constraint_element = p_constraints.find(terrain_constraint);
 		if (in_set_constraint_element) {
 			if (in_set_constraint_element->get().get_terrain() != terrain_constraint.get_terrain()) {
-				// TODO: remove this
-				// print_line("terrain_pattern " ,terrain_pattern.as_array(),"gets score+",in_set_constraint_element->get().get_priority());
 				score += in_set_constraint_element->get().get_priority();
 			}
 		} else if (p_current_pattern.get_terrain() != terrain_pattern.get_terrain()) {
@@ -1898,9 +1930,6 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 				in_set_constraint_element = p_constraints.find(terrain_bit_constraint);
 				if (in_set_constraint_element) {
 					if (in_set_constraint_element->get().get_terrain() != terrain_bit_constraint.get_terrain()) {
-
-						// TODO: remove this
-						// print_line("terrain_pattern " ,terrain_pattern.as_array(),"gets score+",in_set_constraint_element->get().get_priority());
 						score += in_set_constraint_element->get().get_priority();
 					}
 				} else if (p_current_pattern.get_terrain_peering_bit(bit) != terrain_pattern.get_terrain_peering_bit(bit)) {
@@ -1913,14 +1942,8 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 			continue;
 		}
 
-		// TODO: remove this
-		// print_line("Adding pattern with terrain:",terrain_pattern.as_array(), "and score: ", score);
-
 		terrain_pattern_score[terrain_pattern] = score;
 	}
-
-	// TODO: remove this
-	// print_line("terrain_pattern_score.size:" ,terrain_pattern_score.size());
 
 	// Compute the minimum score.
 	TileSet::TerrainsPattern min_score_pattern = p_current_pattern;
@@ -1933,7 +1956,7 @@ TileSet::TerrainsPattern TileMapLayer::_get_best_terrain_pattern_for_constraints
 	}
 
 	// TODO: remove this
-	// print_line("min_score_pattern:" , min_score_pattern.as_array());
+	// print_line("min_score_pattern:", min_score_pattern.as_array(), " with score ", min_score);
 
 	return min_score_pattern;
 }
@@ -1968,7 +1991,8 @@ RBSet<TerrainConstraint> TileMapLayer::_get_terrain_constraints_from_painted_cel
 	// Build a set of dummy constraints to get the constrained points.
 	RBSet<TerrainConstraint> dummy_constraints;
 	for (const Vector2i &E : p_painted) {
-		for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) { // Iterates over neighbor bits.
+		for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
+			// Iterates over neighbor bits.
 			TileSet::CellNeighbor bit = TileSet::CellNeighbor(i);
 			if (tile_set->is_valid_terrain_peering_bit(p_terrain_set, bit)) {
 				dummy_constraints.insert(TerrainConstraint(tile_set, E, bit, -1));
@@ -1978,49 +2002,51 @@ RBSet<TerrainConstraint> TileMapLayer::_get_terrain_constraints_from_painted_cel
 
 	// For each constrained point, we get all overlapping tiles, and select the most adequate terrain for it.
 	RBSet<TerrainConstraint> constraints;
-	for (const TerrainConstraint &E_constraint : dummy_constraints) {
-		HashMap<int, int> terrain_count;
+	if (!USE_CENTER_FOR_CONNECTION) {
+		for (const TerrainConstraint &E_constraint : dummy_constraints) {
+			HashMap<int, int> terrain_count;
 
-		// Count the number of occurrences per terrain.
-		HashMap<Vector2i, TileSet::CellNeighbor> overlapping_terrain_bits = E_constraint.get_overlapping_coords_and_peering_bits();
-		for (const KeyValue<Vector2i, TileSet::CellNeighbor> &E_overlapping : overlapping_terrain_bits) {
-			TileData *neighbor_tile_data = nullptr;
-			TileMapCell neighbor_cell = get_cell(E_overlapping.key);
-			if (neighbor_cell.source_id != TileSet::INVALID_SOURCE) {
-				Ref<TileSetSource> source = tile_set->get_source(neighbor_cell.source_id);
-				Ref<TileSetAtlasSource> atlas_source = source;
-				if (atlas_source.is_valid()) {
-					TileData *tile_data = atlas_source->get_tile_data(neighbor_cell.get_atlas_coords(), neighbor_cell.alternative_tile);
-					if (tile_data && tile_data->get_terrain_set() == p_terrain_set) {
-						neighbor_tile_data = tile_data;
+			// Count the number of occurrences per terrain.
+			HashMap<Vector2i, TileSet::CellNeighbor> overlapping_terrain_bits = E_constraint.get_overlapping_coords_and_peering_bits();
+			for (const KeyValue<Vector2i, TileSet::CellNeighbor> &E_overlapping : overlapping_terrain_bits) {
+				TileData *neighbor_tile_data = nullptr;
+				TileMapCell neighbor_cell = get_cell(E_overlapping.key);
+				if (neighbor_cell.source_id != TileSet::INVALID_SOURCE) {
+					Ref<TileSetSource> source = tile_set->get_source(neighbor_cell.source_id);
+					Ref<TileSetAtlasSource> atlas_source = source;
+					if (atlas_source.is_valid()) {
+						TileData *tile_data = atlas_source->get_tile_data(neighbor_cell.get_atlas_coords(), neighbor_cell.alternative_tile);
+						if (tile_data && tile_data->get_terrain_set() == p_terrain_set) {
+							neighbor_tile_data = tile_data;
+						}
 					}
 				}
-			}
 
-			int terrain = neighbor_tile_data ? neighbor_tile_data->get_terrain_peering_bit(TileSet::CellNeighbor(E_overlapping.value)) : -1;
-			if (!p_ignore_empty_terrains || terrain >= 0) {
-				if (!terrain_count.has(terrain)) {
-					terrain_count[terrain] = 0;
+				int terrain = neighbor_tile_data ? neighbor_tile_data->get_terrain_peering_bit(TileSet::CellNeighbor(E_overlapping.value)) : -1;
+				if (!p_ignore_empty_terrains || terrain >= 0) {
+					if (!terrain_count.has(terrain)) {
+						terrain_count[terrain] = 0;
+					}
+					terrain_count[terrain] += 1;
 				}
-				terrain_count[terrain] += 1;
 			}
-		}
 
-		// Get the terrain with the max number of occurrences.
-		int max = 0;
-		int max_terrain = -1;
-		for (const KeyValue<int, int> &E_terrain_count : terrain_count) {
-			if (E_terrain_count.value > max) {
-				max = E_terrain_count.value;
-				max_terrain = E_terrain_count.key;
+			// Get the terrain with the max number of occurrences.
+			int max = 0;
+			int max_terrain = -1;
+			for (const KeyValue<int, int> &E_terrain_count : terrain_count) {
+				if (E_terrain_count.value > max) {
+					max = E_terrain_count.value;
+					max_terrain = E_terrain_count.key;
+				}
 			}
-		}
 
-		// Set the adequate terrain.
-		if (max > 0) {
-			TerrainConstraint c = E_constraint;
-			c.set_terrain(max_terrain);
-			constraints.insert(c);
+			// Set the adequate terrain.
+			if (max > 0) {
+				TerrainConstraint c = E_constraint;
+				c.set_terrain(max_terrain);
+				constraints.insert(c);
+			}
 		}
 	}
 
@@ -2177,29 +2203,34 @@ void TileMapLayer::_notification(int p_what) {
 			_update_notify_local_transform();
 			dirty.flags[DIRTY_FLAGS_LAYER_IN_TREE] = true;
 			_queue_internal_update();
-		} break;
+		}
+		break;
 
 		case NOTIFICATION_EXIT_TREE: {
 			dirty.flags[DIRTY_FLAGS_LAYER_IN_TREE] = true;
 			// Update immediately on exiting, and force cleanup.
 			_internal_update(true);
-		} break;
+		}
+		break;
 
 		case NOTIFICATION_ENTER_CANVAS: {
 			dirty.flags[DIRTY_FLAGS_LAYER_IN_CANVAS] = true;
 			_queue_internal_update();
-		} break;
+		}
+		break;
 
 		case NOTIFICATION_EXIT_CANVAS: {
 			dirty.flags[DIRTY_FLAGS_LAYER_IN_CANVAS] = true;
 			// Update immediately on exiting, and force cleanup.
 			_internal_update(true);
-		} break;
+		}
+		break;
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			dirty.flags[DIRTY_FLAGS_LAYER_VISIBILITY] = true;
 			_queue_internal_update();
-		} break;
+		}
+		break;
 	}
 
 	_rendering_notification(p_what);
@@ -2442,23 +2473,77 @@ HashMap<Vector2i, TileSet::TerrainsPattern> TileMapLayer::terrain_fill_constrain
 		}
 		TileSet::TerrainsPattern pattern = _get_best_terrain_pattern_for_constraints(p_terrain_set, coords, constraints, current_pattern);
 
-		// TODO: not needed if we only look use center bits
-		// Update the constraint set with the new ones.
-		/*
-		RBSet<TerrainConstraint> new_constraints = _get_terrain_constraints_from_added_pattern(coords, p_terrain_set, pattern);
-		for (const TerrainConstraint &E_constraint : new_constraints) {
-			if (constraints.has(E_constraint)) {
-				constraints.erase(E_constraint);
+		if (!USE_CENTER_FOR_CONNECTION) {
+			// Update the constraint set with the new ones.
+			RBSet<TerrainConstraint> new_constraints = _get_terrain_constraints_from_added_pattern(coords, p_terrain_set, pattern);
+			for (const TerrainConstraint &E_constraint : new_constraints) {
+				if (constraints.has(E_constraint)) {
+					constraints.erase(E_constraint);
+				}
+				TerrainConstraint c = E_constraint;
+				c.set_priority(5);
+				constraints.insert(c);
 			}
-			TerrainConstraint c = E_constraint;
-			c.set_priority(5);
-			constraints.insert(c);
 		}
-		*/
 
 		output[coords] = pattern;
 	}
 	return output;
+}
+
+TileSet::CellNeighbor static get_oppositeNeigbor(const TileSet::CellNeighbor &p_neigbor) {
+	switch (p_neigbor) {
+		case TileSet::CELL_NEIGHBOR_RIGHT_SIDE:
+			return TileSet::CELL_NEIGHBOR_LEFT_SIDE;
+
+		case TileSet::CELL_NEIGHBOR_RIGHT_CORNER:
+			return TileSet::CELL_NEIGHBOR_LEFT_CORNER;
+
+		case TileSet::CELL_NEIGHBOR_BOTTOM_RIGHT_SIDE:
+			return TileSet::CELL_NEIGHBOR_TOP_LEFT_SIDE;
+
+		case TileSet::CELL_NEIGHBOR_BOTTOM_RIGHT_CORNER:
+			return TileSet::CELL_NEIGHBOR_TOP_LEFT_CORNER;
+
+		case TileSet::CELL_NEIGHBOR_BOTTOM_SIDE:
+			return TileSet::CELL_NEIGHBOR_TOP_SIDE;
+
+		case TileSet::CELL_NEIGHBOR_BOTTOM_CORNER:
+			return TileSet::CELL_NEIGHBOR_TOP_CORNER;
+
+		case TileSet::CELL_NEIGHBOR_BOTTOM_LEFT_SIDE:
+			return TileSet::CELL_NEIGHBOR_TOP_RIGHT_SIDE;
+
+		case TileSet::CELL_NEIGHBOR_BOTTOM_LEFT_CORNER:
+			return TileSet::CELL_NEIGHBOR_TOP_RIGHT_CORNER;
+
+		case TileSet::CELL_NEIGHBOR_LEFT_SIDE:
+			return TileSet::CELL_NEIGHBOR_RIGHT_SIDE;
+
+		case TileSet::CELL_NEIGHBOR_LEFT_CORNER:
+			return TileSet::CELL_NEIGHBOR_RIGHT_CORNER;
+
+		case TileSet::CELL_NEIGHBOR_TOP_LEFT_SIDE:
+			return TileSet::CELL_NEIGHBOR_BOTTOM_RIGHT_SIDE;
+
+		case TileSet::CELL_NEIGHBOR_TOP_LEFT_CORNER:
+			return TileSet::CELL_NEIGHBOR_BOTTOM_RIGHT_CORNER;
+
+		case TileSet::CELL_NEIGHBOR_TOP_SIDE:
+			return TileSet::CELL_NEIGHBOR_BOTTOM_SIDE;
+
+		case TileSet::CELL_NEIGHBOR_TOP_CORNER:
+			return TileSet::CELL_NEIGHBOR_BOTTOM_CORNER;
+
+		case TileSet::CELL_NEIGHBOR_TOP_RIGHT_SIDE:
+			return TileSet::CELL_NEIGHBOR_BOTTOM_LEFT_SIDE;
+
+		case TileSet::CELL_NEIGHBOR_TOP_RIGHT_CORNER:
+			return TileSet::CELL_NEIGHBOR_BOTTOM_LEFT_CORNER;
+		default:
+			// TODO: should throw an error if no case matches
+			return TileSet::CELL_NEIGHBOR_RIGHT_SIDE;
+	}
 }
 
 HashMap<Vector2i, TileSet::TerrainsPattern> TileMapLayer::terrain_fill_connect(const Vector<Vector2i> &p_coords_array, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains) const {
@@ -2490,85 +2575,108 @@ HashMap<Vector2i, TileSet::TerrainsPattern> TileMapLayer::terrain_fill_connect(c
 		}
 	}
 
-	// Build a set, out of the possibly modified tiles, of the one with a center bit that is set (or will be) to the painted terrain.
-	RBSet<Vector2i> cells_with_terrain_center_bit;
-	for (Vector2i coords : can_modify_set) {
-		bool connect = false;
-		if (painted_set.has(coords)) {
-			connect = true;
-		} else {
-			// Get the center bit of the cell.
-			TileData *tile_data = nullptr;
-			TileMapCell cell = get_cell(coords);
-			if (cell.source_id != TileSet::INVALID_SOURCE) {
-				Ref<TileSetSource> source = tile_set->get_source(cell.source_id);
-				Ref<TileSetAtlasSource> atlas_source = source;
-				if (atlas_source.is_valid()) {
-					tile_data = atlas_source->get_tile_data(cell.get_atlas_coords(), cell.alternative_tile);
-				}
-			}
-
-			if (tile_data && tile_data->get_terrain_set() == p_terrain_set && tile_data->get_terrain() == p_terrain) {
-				connect = true;
-			}
-		}
-		if (connect) {
-			cells_with_terrain_center_bit.insert(coords);
-		}
-	}
-
 	RBSet<TerrainConstraint> constraints;
-
-	// Add new constraints from the path drawn.
-	for (Vector2i coords : p_coords_array) {
-		// Constraints on the center bit.
-		TerrainConstraint c = TerrainConstraint(tile_set, coords, p_terrain);
-		c.set_priority(10);
-		constraints.insert(c);
-
-		// Constraints on the connecting bits.
-		for (int j = 0; j < TileSet::CELL_NEIGHBOR_MAX; j++) {
-			TileSet::CellNeighbor bit = TileSet::CellNeighbor(j);
-			if (tile_set->is_valid_terrain_peering_bit(p_terrain_set, bit)) {
-				c = TerrainConstraint(tile_set, coords, bit, p_terrain);
+	if (USE_CENTER_FOR_CONNECTION) {
+		for (Vector2i coords : can_modify_set) {
+			if (get_cell_tile_data(coords)) {
+				// Constraints on the center bit.
+				TerrainConstraint c = TerrainConstraint(tile_set, coords, painted_set.has(coords) ? p_terrain : get_cell_tile_data(coords)->get_terrain());
 				c.set_priority(10);
-				if ((int(bit) % 2) == 0) {
-					// Side peering bits: add the constraint if the center is of the same terrain.
-					Vector2i neighbor = tile_set->get_neighbor_cell(coords, bit);
-					TileData *neighborData = get_cell_tile_data(neighbor);
-					if (cells_with_terrain_center_bit.has(neighbor)) {
-						constraints.insert(c);
-					} else if (neighborData){
-						// Else, add it anyway, but with a lower priority
-						c.set_priority(2);
-						c.set_terrain(neighborData->get_terrain());
-						constraints.insert(c);
-					}
-				} else {
-					// Corner peering bits: add the constraint if all tiles on the constraint has the same center bit.
-					HashMap<Vector2i, TileSet::CellNeighbor> overlapping_terrain_bits = c.get_overlapping_coords_and_peering_bits();
-					bool valid = true;
-					for (KeyValue<Vector2i, TileSet::CellNeighbor> kv : overlapping_terrain_bits) {
-						if (!cells_with_terrain_center_bit.has(kv.key)) {
-							valid = false;
-							break;
+				constraints.insert(c);
+
+				for (int j = 0; j < TileSet::CELL_NEIGHBOR_MAX; j++) {
+					TileSet::CellNeighbor bit = TileSet::CellNeighbor(j);
+					if (tile_set->is_valid_terrain_peering_bit(p_terrain_set, bit)) {
+						TileSet::CellNeighbor bit = TileSet::CellNeighbor(j);
+						if (tile_set->is_valid_terrain_peering_bit(p_terrain_set, bit)) {
+							Vector2i neighbor = tile_set->get_neighbor_cell(coords, bit);
+							TileData *neighbor_data = get_cell_tile_data(neighbor);
+							if (neighbor_data) {
+								c = TerrainConstraint(tile_set, coords, bit, painted_set.has(neighbor) ? p_terrain : neighbor_data->get_terrain());
+								c.set_priority(10);
+								constraints.insert(c);
+							}
 						}
 					}
-					if (valid) {
-						constraints.insert(c);
+				}
+			}
+		}
+		return terrain_fill_constraints(can_modify_list, p_terrain_set, constraints);
+	} else {
+		// Build a set, out of the possibly modified tiles, of the one with a center bit that is set (or will be) to the painted terrain.
+		RBSet<Vector2i> cells_with_terrain_center_bit;
+		for (Vector2i coords : can_modify_set) {
+			bool connect = false;
+			if (painted_set.has(coords)) {
+				connect = true;
+			} else {
+				// Get the center bit of the cell.
+				TileData *tile_data = nullptr;
+				TileMapCell cell = get_cell(coords);
+				if (cell.source_id != TileSet::INVALID_SOURCE) {
+					Ref<TileSetSource> source = tile_set->get_source(cell.source_id);
+					Ref<TileSetAtlasSource> atlas_source = source;
+					if (atlas_source.is_valid()) {
+						tile_data = atlas_source->get_tile_data(cell.get_atlas_coords(), cell.alternative_tile);
+					}
+				}
+
+				if (tile_data && tile_data->get_terrain_set() == p_terrain_set && tile_data->get_terrain() == p_terrain) {
+					connect = true;
+				}
+			}
+			if (connect) {
+				cells_with_terrain_center_bit.insert(coords);
+			}
+		}
+
+		// Add new constraints from the path drawn.
+		for (Vector2i coords : p_coords_array) {
+			// Constraints on the center bit.
+			TerrainConstraint c = TerrainConstraint(tile_set, coords, p_terrain);
+			c.set_priority(10);
+			constraints.insert(c);
+
+			// Constraints on the connecting bits.
+			for (int j = 0; j < TileSet::CELL_NEIGHBOR_MAX; j++) {
+				TileSet::CellNeighbor bit = TileSet::CellNeighbor(j);
+				if (tile_set->is_valid_terrain_peering_bit(p_terrain_set, bit)) {
+					if ((int(bit) % 2) == 0) {
+						Vector2i neighbor = tile_set->get_neighbor_cell(coords, bit);
+						TileData *neighborData = get_cell_tile_data(neighbor);
+
+						// Side peering bits: add the constraint if the center is of the same terrain.
+						if (cells_with_terrain_center_bit.has(neighbor)) {
+							c = TerrainConstraint(tile_set, coords, bit, p_terrain);
+							c.set_priority(10);
+							constraints.insert(c);
+						}
+					} else {
+						// Corner peering bits: add the constraint if all tiles on the constraint has the same center bit.
+						HashMap<Vector2i, TileSet::CellNeighbor> overlapping_terrain_bits = c.get_overlapping_coords_and_peering_bits();
+						bool valid = true;
+						for (KeyValue<Vector2i, TileSet::CellNeighbor> kv : overlapping_terrain_bits) {
+							if (!cells_with_terrain_center_bit.has(kv.key)) {
+								valid = false;
+								break;
+							}
+						}
+						if (valid) {
+							constraints.insert(c);
+						}
 					}
 				}
 			}
 		}
-	}
 
-	// Fills in the constraint list from existing tiles.
-	for (TerrainConstraint c : _get_terrain_constraints_from_painted_cells_list(painted_set, p_terrain_set, p_ignore_empty_terrains)) {
-		constraints.insert(c);
-	}
+		// Fills in the constraint list from existing tiles.
+		for (TerrainConstraint c : _get_terrain_constraints_from_painted_cells_list(painted_set, p_terrain_set, p_ignore_empty_terrains)) {
+			constraints.insert(c);
+		}
 
-	// Fill the terrains.
-	return terrain_fill_constraints(can_modify_list, p_terrain_set, constraints);
+		// Fill the terrains.
+		return terrain_fill_constraints(can_modify_list, p_terrain_set, constraints);
+	}
 }
 
 HashMap<Vector2i, TileSet::TerrainsPattern> TileMapLayer::terrain_fill_path(const Vector<Vector2i> &p_coords_array, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains) const {
@@ -2627,11 +2735,14 @@ HashMap<Vector2i, TileSet::TerrainsPattern> TileMapLayer::terrain_fill_path(cons
 		c.set_priority(10);
 		constraints.insert(c);
 	}
-	for (int i = 0; i < p_coords_array.size() - 1; i++) {
-		// Constraints on the peering bits.
-		TerrainConstraint c = TerrainConstraint(tile_set, p_coords_array[i], neighbor_list[i], p_terrain);
-		c.set_priority(10);
-		constraints.insert(c);
+	if (USE_CENTER_FOR_CONNECTION) {
+	} else {
+		for (int i = 0; i < p_coords_array.size() - 1; i++) {
+			// Constraints on the peering bits.
+			TerrainConstraint c = TerrainConstraint(tile_set, p_coords_array[i], neighbor_list[i], p_terrain);
+			c.set_priority(10);
+			constraints.insert(c);
+		}
 	}
 
 	// Fills in the constraint list from existing tiles.
@@ -2828,7 +2939,7 @@ void TileMapLayer::set_cell(const Vector2i &p_coords, int p_source_id, const Vec
 	int alternative_tile = p_alternative_tile;
 
 	if ((source_id == TileSet::INVALID_SOURCE || atlas_coords == TileSetSource::INVALID_ATLAS_COORDS || alternative_tile == TileSetSource::INVALID_TILE_ALTERNATIVE) &&
-			(source_id != TileSet::INVALID_SOURCE || atlas_coords != TileSetSource::INVALID_ATLAS_COORDS || alternative_tile != TileSetSource::INVALID_TILE_ALTERNATIVE)) {
+		(source_id != TileSet::INVALID_SOURCE || atlas_coords != TileSetSource::INVALID_ATLAS_COORDS || alternative_tile != TileSetSource::INVALID_TILE_ALTERNATIVE)) {
 		source_id = TileSet::INVALID_SOURCE;
 		atlas_coords = TileSetSource::INVALID_ATLAS_COORDS;
 		alternative_tile = TileSetSource::INVALID_TILE_ALTERNATIVE;
@@ -2960,8 +3071,8 @@ TypedArray<Vector2i> TileMapLayer::get_used_cells_by_id(int p_source_id, const V
 			continue;
 		}
 		if ((p_source_id == TileSet::INVALID_SOURCE || p_source_id == c.source_id) &&
-				(p_atlas_coords == TileSetSource::INVALID_ATLAS_COORDS || p_atlas_coords == c.get_atlas_coords()) &&
-				(p_alternative_tile == TileSetSource::INVALID_TILE_ALTERNATIVE || p_alternative_tile == c.alternative_tile)) {
+			(p_atlas_coords == TileSetSource::INVALID_ATLAS_COORDS || p_atlas_coords == c.get_atlas_coords()) &&
+			(p_alternative_tile == TileSetSource::INVALID_TILE_ALTERNATIVE || p_alternative_tile == c.alternative_tile)) {
 			a.push_back(E.key);
 		}
 	}
@@ -3622,7 +3733,7 @@ void TileMapLayer::navmesh_parse_source_geometry(const Ref<NavigationPolygon> &p
 		// Parse obstacles.
 		for (int physics_layer = 0; physics_layer < physics_layers_count; physics_layer++) {
 			if ((parsed_geometry_type == NavigationPolygon::PARSED_GEOMETRY_STATIC_COLLIDERS || parsed_geometry_type == NavigationPolygon::PARSED_GEOMETRY_BOTH) &&
-					(tile_set->get_physics_layer_collision_layer(physics_layer) & parsed_collision_mask)) {
+				(tile_set->get_physics_layer_collision_layer(physics_layer) & parsed_collision_mask)) {
 				for (int collision_polygon_index = 0; collision_polygon_index < tile_data->get_collision_polygons_count(physics_layer); collision_polygon_index++) {
 					PackedVector2Array collision_polygon_points = tile_data->get_collision_polygon_points(physics_layer, collision_polygon_index);
 					if (collision_polygon_points.is_empty()) {
@@ -3656,6 +3767,11 @@ HashMap<Vector2i, TileSet::CellNeighbor> TerrainConstraint::get_overlapping_coor
 	ERR_FAIL_COND_V(is_center_bit(), (HashMap<Vector2i, TileSet::CellNeighbor>()));
 	ERR_FAIL_COND_V(tile_set.is_null(), (HashMap<Vector2i, TileSet::CellNeighbor>()));
 	HashMap<Vector2i, TileSet::CellNeighbor> output;
+
+	if (USE_CENTER_FOR_CONNECTION) {
+		output[base_cell_coords] = static_cast<TileSet::CellNeighbor>(bit);
+		return output;
+	}
 
 	TileSet::TileShape shape = tile_set->get_tile_shape();
 	if (shape == TileSet::TILE_SHAPE_SQUARE) {
@@ -3761,15 +3877,27 @@ HashMap<Vector2i, TileSet::CellNeighbor> TerrainConstraint::get_overlapping_coor
 TerrainConstraint::TerrainConstraint(Ref<TileSet> p_tile_set, const Vector2i &p_position, int p_terrain) {
 	ERR_FAIL_COND(p_tile_set.is_null());
 	tile_set = p_tile_set;
-	bit = 0;
+	if (USE_CENTER_FOR_CONNECTION) {
+		bit = -1;
+	} else {
+		bit = 0;
+	}
 	base_cell_coords = p_position;
 	terrain = p_terrain;
 }
+
 
 TerrainConstraint::TerrainConstraint(Ref<TileSet> p_tile_set, const Vector2i &p_position, const TileSet::CellNeighbor &p_bit, int p_terrain) {
 	// The way we build the constraint make it easy to detect conflicting constraints.
 	ERR_FAIL_COND(p_tile_set.is_null());
 	tile_set = p_tile_set;
+
+	if (USE_CENTER_FOR_CONNECTION) {
+		base_cell_coords = p_position;
+		bit = p_bit;
+		terrain = p_terrain;
+		return;
+	}
 
 	TileSet::TileShape shape = tile_set->get_tile_shape();
 	if (shape == TileSet::TILE_SHAPE_SQUARE) {
