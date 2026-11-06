@@ -2521,7 +2521,7 @@ Vector<TileMapLayerSubEditorPlugin::TabData> TileMapLayerEditorTerrainsPlugin::g
 	return tabs;
 }
 
-HashMap<Vector2i, TileMapCell> TileMapLayerEditorTerrainsPlugin::_draw_terrain_path_or_connect(const Vector<Vector2i> &p_to_paint, int p_terrain_set, int p_terrain, bool p_connect) const {
+HashMap<Vector2i, TileMapCell> TileMapLayerEditorTerrainsPlugin::_draw_terrain_path_or_connect(const Vector<Vector2i> &p_to_paint, int p_terrain_set, int p_terrain, SelectedType p_selected_type) const {
 	TileMapLayer *edited_layer = _get_edited_layer();
 	if (!edited_layer) {
 		return HashMap<Vector2i, TileMapCell>();
@@ -2533,9 +2533,12 @@ HashMap<Vector2i, TileMapCell> TileMapLayerEditorTerrainsPlugin::_draw_terrain_p
 	}
 
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_output;
-	if (p_connect) {
+	if (p_selected_type == SELECTED_TYPE_CONNECT) {
 		terrain_fill_output = edited_layer->terrain_fill_connect(p_to_paint, p_terrain_set, p_terrain, false);
-	} else {
+	}else if (p_selected_type == SELECTED_TYPE_CONNECT_CENTERS) {
+		terrain_fill_output = edited_layer->terrain_fill_connect_centers(p_to_paint, p_terrain_set, p_terrain, false);
+	}
+	else {
 		terrain_fill_output = edited_layer->terrain_fill_path(p_to_paint, p_terrain_set, p_terrain, false);
 	}
 
@@ -2634,10 +2637,8 @@ HashMap<Vector2i, TileMapCell> TileMapLayerEditorTerrainsPlugin::_draw_line(Vect
 	if (p_erase) {
 		return _draw_terrain_pattern(TileMapLayerEditor::get_line(edited_layer, p_start_cell, p_end_cell), selected_terrain_set, TileSet::TerrainsPattern(*tile_set, selected_terrain_set));
 	} else {
-		if (selected_type == SELECTED_TYPE_CONNECT) {
-			return _draw_terrain_path_or_connect(TileMapLayerEditor::get_line(edited_layer, p_start_cell, p_end_cell), selected_terrain_set, selected_terrain, true);
-		} else if (selected_type == SELECTED_TYPE_PATH) {
-			return _draw_terrain_path_or_connect(TileMapLayerEditor::get_line(edited_layer, p_start_cell, p_end_cell), selected_terrain_set, selected_terrain, false);
+		if (selected_type != SELECTED_TYPE_PATTERN) {
+			return _draw_terrain_path_or_connect(TileMapLayerEditor::get_line(edited_layer, p_start_cell, p_end_cell), selected_terrain_set, selected_terrain, selected_type);
 		} else { // SELECTED_TYPE_PATTERN
 			return _draw_terrain_pattern(TileMapLayerEditor::get_line(edited_layer, p_start_cell, p_end_cell), selected_terrain_set, selected_terrains_pattern);
 		}
@@ -2670,8 +2671,8 @@ HashMap<Vector2i, TileMapCell> TileMapLayerEditorTerrainsPlugin::_draw_rect(Vect
 	if (p_erase) {
 		return _draw_terrain_pattern(to_draw, selected_terrain_set, TileSet::TerrainsPattern(*tile_set, selected_terrain_set));
 	} else {
-		if (selected_type == SELECTED_TYPE_CONNECT || selected_type == SELECTED_TYPE_PATH) {
-			return _draw_terrain_path_or_connect(to_draw, selected_terrain_set, selected_terrain, true);
+		if (selected_type != SELECTED_TYPE_PATTERN) {
+			return _draw_terrain_path_or_connect(to_draw, selected_terrain_set, selected_terrain, selected_type);
 		} else { // SELECTED_TYPE_PATTERN
 			return _draw_terrain_pattern(to_draw, selected_terrain_set, selected_terrains_pattern);
 		}
@@ -2689,6 +2690,10 @@ RBSet<Vector2i> TileMapLayerEditorTerrainsPlugin::_get_cells_for_bucket_fill(Vec
 		return RBSet<Vector2i>();
 	}
 
+	if (selected_terrain_set < 0) {
+		return RBSet<Vector2i>();
+	}
+
 	TileMapCell source_cell = edited_layer->get_cell(p_coords);
 
 	TileSet::TerrainsPattern source_pattern(*tile_set, selected_terrain_set);
@@ -2699,7 +2704,7 @@ RBSet<Vector2i> TileMapLayerEditorTerrainsPlugin::_get_cells_for_bucket_fill(Vec
 		if (atlas_source.is_valid()) {
 			tile_data = atlas_source->get_tile_data(source_cell.get_atlas_coords(), source_cell.alternative_tile);
 		}
-		if (!tile_data) {
+		if (!tile_data || tile_data->get_terrain_set() < 0) {
 			return RBSet<Vector2i>();
 		}
 		source_pattern = tile_data->get_terrains_pattern();
@@ -2730,7 +2735,7 @@ RBSet<Vector2i> TileMapLayerEditorTerrainsPlugin::_get_cells_for_bucket_fill(Vec
 					if (atlas_source.is_valid()) {
 						tile_data = atlas_source->get_tile_data(edited_layer->get_cell_atlas_coords(coords), edited_layer->get_cell_alternative_tile(coords));
 					}
-					if (tile_data) {
+					if (tile_data && tile_data->get_terrain_set() >= 0) {
 						candidate_pattern = tile_data->get_terrains_pattern();
 					}
 				}
@@ -2775,7 +2780,7 @@ RBSet<Vector2i> TileMapLayerEditorTerrainsPlugin::_get_cells_for_bucket_fill(Vec
 				if (atlas_source.is_valid()) {
 					tile_data = atlas_source->get_tile_data(edited_layer->get_cell_atlas_coords(coords), edited_layer->get_cell_alternative_tile(coords));
 				}
-				if (tile_data) {
+				if (tile_data && tile_data->get_terrain_set() >= 0) {
 					candidate_pattern = tile_data->get_terrains_pattern();
 				}
 			}
@@ -2809,8 +2814,8 @@ HashMap<Vector2i, TileMapCell> TileMapLayerEditorTerrainsPlugin::_draw_bucket_fi
 	if (p_erase) {
 		return _draw_terrain_pattern(cells_to_draw_as_vector, selected_terrain_set, TileSet::TerrainsPattern(*tile_set, selected_terrain_set));
 	} else {
-		if (selected_type == SELECTED_TYPE_CONNECT || selected_type == SELECTED_TYPE_PATH) {
-			return _draw_terrain_path_or_connect(cells_to_draw_as_vector, selected_terrain_set, selected_terrain, true);
+		if (selected_type != SELECTED_TYPE_PATTERN) {
+			return _draw_terrain_path_or_connect(cells_to_draw_as_vector, selected_terrain_set, selected_terrain, selected_type);
 		} else { // SELECTED_TYPE_PATTERN
 			return _draw_terrain_pattern(cells_to_draw_as_vector, selected_terrain_set, selected_terrains_pattern);
 		}
@@ -2981,6 +2986,8 @@ void TileMapLayerEditorTerrainsPlugin::_update_selection() {
 			metadata_dict = terrains_tile_list->get_item_metadata(terrains_tile_list->get_selected_items()[0]);
 			if (int(metadata_dict["type"]) == SELECTED_TYPE_CONNECT) {
 				selected_type = SELECTED_TYPE_CONNECT;
+			} else if (int(metadata_dict["type"]) == SELECTED_TYPE_CONNECT_CENTERS) {
+				selected_type = SELECTED_TYPE_CONNECT_CENTERS;
 			} else if (int(metadata_dict["type"]) == SELECTED_TYPE_PATH) {
 				selected_type = SELECTED_TYPE_PATH;
 			} else if (int(metadata_dict["type"]) == SELECTED_TYPE_PATTERN) {
@@ -3394,18 +3401,33 @@ void TileMapLayerEditorTerrainsPlugin::_update_tiles_list() {
 		ERR_FAIL_INDEX(sel_terrain_set, tile_set->get_terrain_sets_count());
 		ERR_FAIL_INDEX(sel_terrain_id, tile_set->get_terrains_count(sel_terrain_set));
 
-		// Add the two first generic modes
+		// Add the three first generic modes
 		int item_index = terrains_tile_list->add_icon_item(main_box_container->get_editor_theme_icon(SNAME("TerrainConnect")));
 		terrains_tile_list->set_item_tooltip(item_index, TTRC("Connect mode: paints a terrain, then connects it with the surrounding tiles with the same terrain."));
 		Dictionary list_metadata_dict;
 		list_metadata_dict["type"] = SELECTED_TYPE_CONNECT;
 		terrains_tile_list->set_item_metadata(item_index, list_metadata_dict);
+		if (selected_type == SELECTED_TYPE_CONNECT) {
+			terrains_tile_list->select(item_index);
+		}
 
 		item_index = terrains_tile_list->add_icon_item(main_box_container->get_editor_theme_icon(SNAME("TerrainPath")));
 		terrains_tile_list->set_item_tooltip(item_index, TTRC("Path mode: paints a terrain, then connects it to the previous tile painted within the same stroke."));
 		list_metadata_dict = Dictionary();
 		list_metadata_dict["type"] = SELECTED_TYPE_PATH;
 		terrains_tile_list->set_item_metadata(item_index, list_metadata_dict);
+		if (selected_type == SELECTED_TYPE_PATH) {
+			terrains_tile_list->select(item_index);
+		}
+
+		item_index = terrains_tile_list->add_icon_item(main_box_container->get_editor_theme_icon(SNAME("TerrainConnectCenters")));
+		terrains_tile_list->set_item_tooltip(item_index, TTRC("Connect centers mode: paints a terrain, then connects it with surrounding tiles according to their center terrain bit."));
+		list_metadata_dict = Dictionary();
+		list_metadata_dict["type"] = SELECTED_TYPE_CONNECT_CENTERS;
+		terrains_tile_list->set_item_metadata(item_index, list_metadata_dict);
+		if (selected_type == SELECTED_TYPE_CONNECT_CENTERS) {
+			terrains_tile_list->select(item_index);
+		}
 
 		// Sort the items in a map by the number of corresponding terrains.
 		RBMap<int, RBSet<TileSet::TerrainsPattern>> sorted;
@@ -3465,7 +3487,7 @@ void TileMapLayerEditorTerrainsPlugin::_update_tiles_list() {
 				terrains_tile_list->set_item_metadata(item_index, list_metadata_dict);
 			}
 		}
-		if (terrains_tile_list->get_item_count() > 0) {
+		if (terrains_tile_list->get_item_count() > 0 && terrains_tile_list->get_selected_items().size() == 0) {
 			terrains_tile_list->select(0);
 		}
 	}
@@ -3552,6 +3574,7 @@ TileMapLayerEditorTerrainsPlugin::TileMapLayerEditorTerrainsPlugin() {
 	terrains_tile_list->set_fixed_icon_size(Size2(32, 32) * EDSCALE);
 	terrains_tile_list->set_texture_filter(CanvasItem::TEXTURE_FILTER_NEAREST);
 	terrains_tile_list->set_theme_type_variation("ItemListSecondary");
+	terrains_tile_list->connect(SNAME("item_selected"), callable_mp(this, &TileMapLayerEditorTerrainsPlugin::_update_selection).unbind(1));
 	tilemap_tab_terrains->add_child(terrains_tile_list);
 
 	// --- Toolbar ---

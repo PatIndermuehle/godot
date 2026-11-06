@@ -316,8 +316,16 @@ private:
 	Vector2 drag_last_mouse_pos;
 	HashMap<Vector2i, TileMapCell> drag_modified;
 
+	enum SelectedType {
+		SELECTED_TYPE_CONNECT = 0,
+		SELECTED_TYPE_PATH,
+		SELECTED_TYPE_PATTERN,
+		SELECTED_TYPE_CONNECT_CENTERS
+	};
+	SelectedType selected_type = SELECTED_TYPE_CONNECT;
+
 	// Painting
-	HashMap<Vector2i, TileMapCell> _draw_terrain_path_or_connect(const Vector<Vector2i> &p_to_paint, int p_terrain_set, int p_terrain, bool p_connect) const;
+	HashMap<Vector2i, TileMapCell> _draw_terrain_path_or_connect(const Vector<Vector2i> &p_to_paint, int p_terrain_set, int p_terrain, SelectedType p_selected_type) const;
 	HashMap<Vector2i, TileMapCell> _draw_terrain_pattern(const Vector<Vector2i> &p_to_paint, int p_terrain_set, TileSet::TerrainsPattern p_terrains_pattern) const;
 	HashMap<Vector2i, TileMapCell> _draw_line(Vector2i p_start_cell, Vector2i p_end_cell, bool p_erase);
 	HashMap<Vector2i, TileMapCell> _draw_rect(Vector2i p_start_cell, Vector2i p_end_cell, bool p_erase);
@@ -325,12 +333,6 @@ private:
 	HashMap<Vector2i, TileMapCell> _draw_bucket_fill(Vector2i p_coords, bool p_contiguous, bool p_erase);
 	void _stop_dragging();
 
-	enum SelectedType {
-		SELECTED_TYPE_CONNECT = 0,
-		SELECTED_TYPE_PATH,
-		SELECTED_TYPE_PATTERN,
-	};
-	SelectedType selected_type = SELECTED_TYPE_CONNECT;
 	int selected_terrain_set = -1;
 	int selected_terrain = -1;
 	TileSet::TerrainsPattern selected_terrains_pattern;

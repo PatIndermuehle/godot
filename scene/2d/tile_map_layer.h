@@ -44,6 +44,39 @@ enum TileMapLayerDataFormat {
 	TILE_MAP_LAYER_DATA_FORMAT_MAX,
 };
 
+class ConnectCenterTerrainConstraint {
+private:
+	Ref<TileSet> tile_set;
+	Vector2i base_cell_coords;
+	int bit = -1;
+	int terrain = -1;
+
+	int priority = 1;
+public:
+	bool operator<(const ConnectCenterTerrainConstraint &p_other) const {
+		if (base_cell_coords == p_other.base_cell_coords) {
+			return bit < p_other.bit;
+		}
+		return base_cell_coords < p_other.base_cell_coords;
+	}
+
+	int get_terrain() const {
+		return terrain;
+	}
+
+	void set_priority(int p_priority) {
+		priority = p_priority;
+	}
+
+	int get_priority() const {
+		return priority;
+	}
+
+	ConnectCenterTerrainConstraint(Ref<TileSet> p_tile_set, const Vector2i &p_position, int p_terrain); // For the center terrain bit
+	ConnectCenterTerrainConstraint(Ref<TileSet> p_tile_set, const Vector2i &p_position, const TileSet::CellNeighbor &p_bit, int p_terrain); // For peering bits
+	ConnectCenterTerrainConstraint() {}
+};
+
 class TerrainConstraint {
 private:
 	Ref<TileSet> tile_set;
@@ -501,6 +534,7 @@ private:
 
 	// Terrains.
 	TileSet::TerrainsPattern _get_best_terrain_pattern_for_constraints(int p_terrain_set, const Vector2i &p_position, const RBSet<TerrainConstraint> &p_constraints, TileSet::TerrainsPattern p_current_pattern) const;
+	TileSet::TerrainsPattern _get_best_terrain_pattern_for_constraints_connect_centers(int p_terrain_set, const Vector2i &p_position, const RBSet<ConnectCenterTerrainConstraint> &p_constraints, TileSet::TerrainsPattern p_current_pattern) const;
 	RBSet<TerrainConstraint> _get_terrain_constraints_from_added_pattern(const Vector2i &p_position, int p_terrain_set, TileSet::TerrainsPattern p_terrains_pattern) const;
 	RBSet<TerrainConstraint> _get_terrain_constraints_from_painted_cells_list(const RBSet<Vector2i> &p_painted, int p_terrain_set, bool p_ignore_empty_terrains) const;
 
@@ -544,7 +578,9 @@ public:
 
 	// Terrains.
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_constraints(const Vector<Vector2i> &p_to_replace, int p_terrain_set, const RBSet<TerrainConstraint> &p_constraints) const; // Not exposed.
+	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_constraints_connect_centers(const Vector<Vector2i> &p_to_replace, int p_terrain_set, const RBSet<ConnectCenterTerrainConstraint> &p_constraints) const; // Not exposed.
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_connect(const Vector<Vector2i> &p_coords_array, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true) const; // Not exposed.
+	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_connect_centers(const Vector<Vector2i> &p_coords_array, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true) const; // Not exposed.
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_path(const Vector<Vector2i> &p_coords_array, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true) const; // Not exposed.
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_pattern(const Vector<Vector2i> &p_coords_array, int p_terrain_set, TileSet::TerrainsPattern p_terrains_pattern, bool p_ignore_empty_terrains = true) const; // Not exposed.
 
@@ -582,6 +618,7 @@ public:
 
 	// Terrains.
 	void set_cells_terrain_connect(TypedArray<Vector2i> p_cells, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true);
+	void set_cells_terrain_connect_centers(TypedArray<Vector2i> p_cells, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true);
 	void set_cells_terrain_path(TypedArray<Vector2i> p_path, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true);
 
 #ifndef PHYSICS_2D_DISABLED
