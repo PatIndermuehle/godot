@@ -2536,7 +2536,7 @@ HashMap<Vector2i, TileMapCell> TileMapLayerEditorTerrainsPlugin::_draw_terrain_p
 	if (p_selected_type == SELECTED_TYPE_CONNECT) {
 		terrain_fill_output = edited_layer->terrain_fill_connect(p_to_paint, p_terrain_set, p_terrain, false);
 	}else if (p_selected_type == SELECTED_TYPE_CONNECT_CENTERS) {
-		terrain_fill_output = edited_layer->terrain_fill_connect_centers(p_to_paint, p_terrain_set, p_terrain, false);
+		terrain_fill_output = edited_layer->terrain_fill_connect_centers(p_to_paint, p_terrain_set, p_terrain);
 	}
 	else {
 		terrain_fill_output = edited_layer->terrain_fill_path(p_to_paint, p_terrain_set, p_terrain, false);
@@ -3319,9 +3319,11 @@ void TileMapLayerEditorTerrainsPlugin::_update_terrains_cache() {
 						for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
 							TileSet::CellNeighbor bit = TileSet::CellNeighbor(i);
 							if (tile_set->is_valid_terrain_peering_bit(terrain_set, bit)) {
-								terrain = terrains_pattern.get_terrain_peering_bit(bit);
-								if (terrain >= 0 && terrain < (int)per_terrain_terrains_patterns[terrain_set].size()) {
-									per_terrain_terrains_patterns[terrain_set][terrain].insert(terrains_pattern);
+								Vector<int> terrain_peering_bits = terrains_pattern.get_terrain_peering_bits(bit);
+								for (int terrain_peering_bit : terrain_peering_bits) {
+									if (terrain_peering_bit >= 0 && terrain_peering_bit < (int)per_terrain_terrains_patterns[terrain_set].size()) {
+										per_terrain_terrains_patterns[terrain_set][terrain_peering_bit].insert(terrains_pattern);
+									}
 								}
 							}
 						}
@@ -3402,9 +3404,18 @@ void TileMapLayerEditorTerrainsPlugin::_update_tiles_list() {
 		ERR_FAIL_INDEX(sel_terrain_id, tile_set->get_terrains_count(sel_terrain_set));
 
 		// Add the three first generic modes
-		int item_index = terrains_tile_list->add_icon_item(main_box_container->get_editor_theme_icon(SNAME("TerrainConnect")));
-		terrains_tile_list->set_item_tooltip(item_index, TTRC("Connect mode: paints a terrain, then connects it with the surrounding tiles with the same terrain."));
+		int item_index = terrains_tile_list->add_icon_item(main_box_container->get_editor_theme_icon(SNAME("TerrainConnectCenters")));
+		terrains_tile_list->set_item_tooltip(item_index, TTRC("Connect centers mode: paints a terrain, then connects it with surrounding tiles according to their center terrain bit."));
 		Dictionary list_metadata_dict;
+		list_metadata_dict["type"] = SELECTED_TYPE_CONNECT_CENTERS;
+		terrains_tile_list->set_item_metadata(item_index, list_metadata_dict);
+		if (selected_type == SELECTED_TYPE_CONNECT_CENTERS) {
+			terrains_tile_list->select(item_index);
+		}
+
+		item_index = terrains_tile_list->add_icon_item(main_box_container->get_editor_theme_icon(SNAME("TerrainConnect")));
+		terrains_tile_list->set_item_tooltip(item_index, TTRC("Connect mode: paints a terrain, then connects it with the surrounding tiles with the same terrain."));
+		list_metadata_dict = Dictionary();
 		list_metadata_dict["type"] = SELECTED_TYPE_CONNECT;
 		terrains_tile_list->set_item_metadata(item_index, list_metadata_dict);
 		if (selected_type == SELECTED_TYPE_CONNECT) {
@@ -3420,15 +3431,6 @@ void TileMapLayerEditorTerrainsPlugin::_update_tiles_list() {
 			terrains_tile_list->select(item_index);
 		}
 
-		item_index = terrains_tile_list->add_icon_item(main_box_container->get_editor_theme_icon(SNAME("TerrainConnectCenters")));
-		terrains_tile_list->set_item_tooltip(item_index, TTRC("Connect centers mode: paints a terrain, then connects it with surrounding tiles according to their center terrain bit."));
-		list_metadata_dict = Dictionary();
-		list_metadata_dict["type"] = SELECTED_TYPE_CONNECT_CENTERS;
-		terrains_tile_list->set_item_metadata(item_index, list_metadata_dict);
-		if (selected_type == SELECTED_TYPE_CONNECT_CENTERS) {
-			terrains_tile_list->select(item_index);
-		}
-
 		// Sort the items in a map by the number of corresponding terrains.
 		RBMap<int, RBSet<TileSet::TerrainsPattern>> sorted;
 
@@ -3438,7 +3440,7 @@ void TileMapLayerEditorTerrainsPlugin::_update_tiles_list() {
 
 			for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
 				TileSet::CellNeighbor bit = TileSet::CellNeighbor(i);
-				if (tile_set->is_valid_terrain_peering_bit(sel_terrain_set, bit) && E.get_terrain_peering_bit(bit) == sel_terrain_id) {
+				if (tile_set->is_valid_terrain_peering_bit(sel_terrain_set, bit) && E.get_terrain_peering_bits(bit).has(sel_terrain_id)) {
 					count++;
 				}
 			}

@@ -580,7 +580,7 @@ public:
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_constraints(const Vector<Vector2i> &p_to_replace, int p_terrain_set, const RBSet<TerrainConstraint> &p_constraints) const; // Not exposed.
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_constraints_connect_centers(const Vector<Vector2i> &p_to_replace, int p_terrain_set, const RBSet<ConnectCenterTerrainConstraint> &p_constraints) const; // Not exposed.
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_connect(const Vector<Vector2i> &p_coords_array, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true) const; // Not exposed.
-	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_connect_centers(const Vector<Vector2i> &p_coords_array, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true) const; // Not exposed.
+	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_connect_centers(const Vector<Vector2i> &p_coords_array, int p_terrain_set, int p_terrain) const; // Not exposed.
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_path(const Vector<Vector2i> &p_coords_array, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true) const; // Not exposed.
 	HashMap<Vector2i, TileSet::TerrainsPattern> terrain_fill_pattern(const Vector<Vector2i> &p_coords_array, int p_terrain_set, TileSet::TerrainsPattern p_terrains_pattern, bool p_ignore_empty_terrains = true) const; // Not exposed.
 
@@ -618,7 +618,7 @@ public:
 
 	// Terrains.
 	void set_cells_terrain_connect(TypedArray<Vector2i> p_cells, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true);
-	void set_cells_terrain_connect_centers(TypedArray<Vector2i> p_cells, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true);
+	void set_cells_terrain_connect_centers(TypedArray<Vector2i> p_cells, int p_terrain_set, int p_terrain);
 	void set_cells_terrain_path(TypedArray<Vector2i> p_path, int p_terrain_set, int p_terrain, bool p_ignore_empty_terrains = true);
 
 #ifndef PHYSICS_2D_DISABLED

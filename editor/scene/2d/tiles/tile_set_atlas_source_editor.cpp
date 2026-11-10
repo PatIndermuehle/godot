@@ -741,7 +741,7 @@ void TileSetAtlasSourceEditor::_update_tile_data_editors() {
 		tile_data_editors.erase(vformat("occlusion_layer_%d", i));
 	}
 
-	// --- Rendering ---
+	// --- Terrain ---
 	ADD_TILE_DATA_EDITOR(root, TTR("Terrains"), "terrain_set");
 	if (!tile_data_editors.has("terrain_set")) {
 		TileDataTerrainsEditor *tile_data_terrains_editor = memnew(TileDataTerrainsEditor);
