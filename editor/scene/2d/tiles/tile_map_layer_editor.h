@@ -322,7 +322,7 @@ private:
 		SELECTED_TYPE_PATTERN,
 		SELECTED_TYPE_CONNECT_CENTERS
 	};
-	SelectedType selected_type = SELECTED_TYPE_CONNECT;
+	SelectedType selected_type = SELECTED_TYPE_CONNECT_CENTERS;
 
 	// Painting
 	HashMap<Vector2i, TileMapCell> _draw_terrain_path_or_connect(const Vector<Vector2i> &p_to_paint, int p_terrain_set, int p_terrain, SelectedType p_selected_type) const;

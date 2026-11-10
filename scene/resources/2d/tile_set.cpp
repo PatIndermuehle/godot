@@ -37,6 +37,7 @@
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/templates/local_vector.h"
+#include "core/templates/vector.h"
 #include "core/templates/rb_set.h"
 #include "scene/gui/control.h"
 #include "scene/resources/image_texture.h"
@@ -234,8 +235,17 @@ bool TileSet::TerrainsPattern::operator<(const TerrainsPattern &p_terrains_patte
 		return terrain < p_terrains_pattern.terrain;
 	}
 	for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
-		if (is_valid_bit[i] && bits[i] != p_terrains_pattern.bits[i]) {
-			return bits[i] < p_terrains_pattern.bits[i];
+		if (is_valid_bit[i]) {
+
+			if (bits[i].size() != p_terrains_pattern.bits[i].size()) {
+				return bits[i].size() < p_terrains_pattern.bits[i].size();
+			}
+
+			for (int j = 0; j < bits[i].size(); ++j) {
+				if (bits[i][j] != p_terrains_pattern.bits[i][j]) {
+					return bits[i][j] < p_terrains_pattern.bits[i][j];
+				}
+			}
 		}
 	}
 	return false;
@@ -246,8 +256,15 @@ bool TileSet::TerrainsPattern::operator==(const TerrainsPattern &p_terrains_patt
 		if (is_valid_bit[i] != p_terrains_pattern.is_valid_bit[i]) {
 			return false;
 		}
-		if (is_valid_bit[i] && bits[i] != p_terrains_pattern.bits[i]) {
+
+		if (bits[i].size() != p_terrains_pattern.bits[i].size()) {
 			return false;
+		}
+
+		for (int j = 0; j < bits[i].size(); ++j) {
+			if (bits[i][j] != p_terrains_pattern.bits[i][j]) {
+				return false;
+			}
 		}
 	}
 	if (terrain != p_terrains_pattern.terrain) {
@@ -266,25 +283,42 @@ int TileSet::TerrainsPattern::get_terrain() const {
 	return terrain;
 }
 
-void TileSet::TerrainsPattern::set_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit, int p_terrain) {
+void TileSet::TerrainsPattern::add_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit, int p_terrain) {
 	ERR_FAIL_COND(p_peering_bit == TileSet::CELL_NEIGHBOR_MAX);
 	ERR_FAIL_COND(!is_valid_bit[p_peering_bit]);
-	ERR_FAIL_COND(p_terrain < -1);
+	ERR_FAIL_COND(p_terrain <= -1);
 
 	// Update the "is_erase_pattern" status.
-	if (p_terrain >= 0 && bits[p_peering_bit] < 0) {
+	if (p_terrain >= 0 && bits[p_peering_bit].size() == 0) {
 		not_empty_terrains_count++;
-	} else if (p_terrain < 0 && bits[p_peering_bit] >= 0) {
+	}
+
+	bits[p_peering_bit].append(p_terrain);
+}
+
+void TileSet::TerrainsPattern::remove_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit, int p_terrain) {
+	ERR_FAIL_COND(p_peering_bit == TileSet::CELL_NEIGHBOR_MAX);
+	ERR_FAIL_COND(!is_valid_bit[p_peering_bit]);
+	ERR_FAIL_COND(p_terrain <= -1);
+
+	// Update the "is_erase_pattern" status.
+	if (bits[p_peering_bit].has(p_peering_bit) && bits[p_peering_bit].size() == 1) {
 		not_empty_terrains_count--;
 	}
 
-	bits[p_peering_bit] = p_terrain;
+	bits[p_peering_bit].remove_at(bits[p_peering_bit].find(p_terrain));
 }
 
-int TileSet::TerrainsPattern::get_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit) const {
-	ERR_FAIL_COND_V(p_peering_bit == TileSet::CELL_NEIGHBOR_MAX, -1);
-	ERR_FAIL_COND_V(!is_valid_bit[p_peering_bit], -1);
+Vector<int> TileSet::TerrainsPattern::get_terrain_peering_bits(TileSet::CellNeighbor p_peering_bit) const {
+	ERR_FAIL_COND_V(p_peering_bit == TileSet::CELL_NEIGHBOR_MAX, {});
+	ERR_FAIL_COND_V(!is_valid_bit[p_peering_bit], {});
 	return bits[p_peering_bit];
+}
+
+void TileSet::TerrainsPattern::set_terrain_peering_bits(TileSet::CellNeighbor p_peering_bit, const Vector<int> p_terrain_ids) {
+	ERR_FAIL_COND(p_peering_bit == TileSet::CELL_NEIGHBOR_MAX);
+	ERR_FAIL_COND(!is_valid_bit[p_peering_bit]);
+	bits[p_peering_bit] = p_terrain_ids;
 }
 
 void TileSet::TerrainsPattern::from_array(Array p_terrains) {
@@ -293,7 +327,7 @@ void TileSet::TerrainsPattern::from_array(Array p_terrains) {
 	for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
 		if (is_valid_bit[i]) {
 			ERR_FAIL_INDEX(in_array_index, p_terrains.size());
-			set_terrain_peering_bit(TileSet::CellNeighbor(i), p_terrains[in_array_index]);
+			set_terrain_peering_bits(TileSet::CellNeighbor(i), p_terrains[in_array_index]);
 			in_array_index++;
 		}
 	}
@@ -313,7 +347,7 @@ TileSet::TerrainsPattern::TerrainsPattern(const TileSet *p_tile_set, int p_terra
 	ERR_FAIL_COND(p_terrain_set < 0);
 	for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
 		is_valid_bit[i] = (p_tile_set->is_valid_terrain_peering_bit(p_terrain_set, TileSet::CellNeighbor(i)));
-		bits[i] = -1;
+		bits[i] = {};
 	}
 	valid = true;
 }
@@ -431,8 +465,8 @@ void TileSet::_update_terrains_cache() {
 							for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
 								CellNeighbor bit = CellNeighbor(i);
 								if (is_valid_terrain_peering_bit(terrain_set, bit)) {
-									int terrain = terrains_pattern.get_terrain_peering_bit(bit);
-									if (terrain >= 0) {
+									Vector<int> terrain = terrains_pattern.get_terrain_peering_bits(bit);
+									if (terrain.size() > 0) {
 										per_terrain_pattern_tiles[terrain_set][terrains_pattern].insert(cell);
 									}
 								}
@@ -2312,7 +2346,7 @@ Vector<Point2> TileSet::get_terrain_peering_bit_polygon(int p_terrain_set, TileS
 
 #define TERRAIN_ALPHA 0.6
 
-void TileSet::draw_terrains(CanvasItem *p_canvas_item, Transform2D p_transform, const TileData *p_tile_data) {
+void TileSet::draw_terrains(CanvasItem *p_canvas_item, Transform2D p_transform, const TileData *p_tile_data, int p_selected_terrain) {
 	ERR_FAIL_NULL(p_tile_data);
 
 	if (terrain_bits_meshes_dirty) {
@@ -2440,11 +2474,32 @@ void TileSet::draw_terrains(CanvasItem *p_canvas_item, Transform2D p_transform, 
 	for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
 		CellNeighbor bit = CellNeighbor(i);
 		if (is_valid_terrain_peering_bit(terrain_set, bit)) {
-			terrain_id = p_tile_data->get_terrain_peering_bit(bit);
-			if (terrain_id >= 0) {
-				Color color = get_terrain_color(terrain_set, terrain_id);
-				color.a = TERRAIN_ALPHA;
-				p_canvas_item->draw_mesh(terrain_peering_bits_meshes[terrain_mode][bit], Ref<Texture2D>(), Transform2D(), color);
+			if (p_tile_data->get_terrain_multi_peering_enabled()) {
+				Vector<int> multi_peering_terrain_ids = p_tile_data->get_terrain_multi_peering_bits(bit);
+				if (p_selected_terrain == -1) {
+					if (multi_peering_terrain_ids.size() > 0) {
+						Color color = Color(0, 0, 0, 0);
+						for (int multi_peering_terrain_id : multi_peering_terrain_ids) {
+							color += get_terrain_color(terrain_set, multi_peering_terrain_id);
+						}
+						color /= (float)multi_peering_terrain_ids.size();
+						color.a = TERRAIN_ALPHA;
+						p_canvas_item->draw_mesh(terrain_peering_bits_meshes[terrain_mode][bit], Ref<Texture2D>(), Transform2D(), color);
+					}
+				} else {
+					if (multi_peering_terrain_ids.has(p_selected_terrain)) {
+						Color color = get_terrain_color(terrain_set, p_selected_terrain);
+						color.a = TERRAIN_ALPHA;
+						p_canvas_item->draw_mesh(terrain_peering_bits_meshes[terrain_mode][bit], Ref<Texture2D>(), Transform2D(), color);
+					}
+				}
+			} else {
+				terrain_id = p_tile_data->get_terrain_peering_bit(bit);
+				if (terrain_id >= 0) {
+					Color color = get_terrain_color(terrain_set, terrain_id);
+					color.a = TERRAIN_ALPHA;
+					p_canvas_item->draw_mesh(terrain_peering_bits_meshes[terrain_mode][bit], Ref<Texture2D>(), Transform2D(), color);
+				}
 			}
 		}
 	}
@@ -5973,6 +6028,18 @@ void TileData::notify_tile_data_properties_should_change() {
 		if (terrain_set < 0 || terrain_peering_bits[bit_index] >= tile_set->get_terrains_count(terrain_set)) {
 			terrain_peering_bits[bit_index] = -1;
 		}
+
+		if (terrain_set < 0 || !terrain_multi_peering_enabled) {
+			terrain_multi_peering_bits[bit_index] = Vector<int>();
+		} else {
+			Vector<int> filtered_bits = Vector<int>();
+			for (int i = 0; i < terrain_multi_peering_bits[bit_index].size(); ++i) {
+				if (terrain_multi_peering_bits[bit_index][i] < tile_set->get_terrains_count(terrain_set)) {
+					filtered_bits.append(terrain_multi_peering_bits[bit_index][i]);
+				}
+			}
+			terrain_multi_peering_bits[bit_index] = filtered_bits;
+		}
 	}
 #ifndef NAVIGATION_2D_DISABLED
 	navigation.resize(tile_set->get_navigation_layers_count());
@@ -6566,6 +6633,61 @@ bool TileData::is_valid_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit)
 	return tile_set->is_valid_terrain_peering_bit(terrain_set, p_peering_bit);
 }
 
+void TileData::set_terrain_multi_peering_enabled(bool p_enabled) {
+	terrain_multi_peering_enabled = p_enabled;
+	ERR_FAIL_COND(terrain_set < 0);
+
+	notify_property_list_changed();
+}
+
+bool TileData::get_terrain_multi_peering_enabled() const {
+	return terrain_multi_peering_enabled;
+}
+
+Vector<int> TileData::get_terrain_multi_peering_bits(TileSet::CellNeighbor p_peering_bit) const {
+	ERR_FAIL_COND_V(!is_valid_terrain_peering_bit(p_peering_bit), {});
+	Vector<int> bits = Vector<int>();
+	bits.append_array(terrain_multi_peering_bits[p_peering_bit]);
+	return bits;
+}
+
+void TileData::set_terrain_multi_peering_bits(TileSet::CellNeighbor p_peering_bit, Vector<int> p_terrain_ids) {
+	ERR_FAIL_INDEX(p_peering_bit, TileSet::CellNeighbor::CELL_NEIGHBOR_MAX);
+	ERR_FAIL_COND(terrain_set < 0 && p_terrain_ids.size() != 0);
+
+	if (tile_set && terrain_set >= 0) {
+		for (int terrain_id : p_terrain_ids) {
+			ERR_FAIL_COND(terrain_id >= tile_set->get_terrains_count(terrain_set));
+		}
+		ERR_FAIL_COND(!is_valid_terrain_peering_bit(p_peering_bit));
+	}
+
+	p_terrain_ids.sort();
+	terrain_multi_peering_bits[p_peering_bit] = p_terrain_ids;
+	emit_signal(CoreStringName(changed));
+}
+
+void TileData::add_terrain_multi_peering_bits(TileSet::CellNeighbor p_peering_bit, int p_terrain_id) {
+	if (!terrain_multi_peering_bits[p_peering_bit].has(p_terrain_id)) {
+		terrain_multi_peering_bits[p_peering_bit].append(p_terrain_id);
+	}
+}
+
+void TileData::remove_terrain_multi_peering_bits(TileSet::CellNeighbor p_peering_bit, int p_terrain_id) {
+	int index = (int)terrain_multi_peering_bits[p_peering_bit].find(p_terrain_id);
+	if (index >= 0) {
+		terrain_multi_peering_bits[p_peering_bit].remove_at(index);
+	}
+}
+
+bool TileData::contains_terrain_peering_bits(TileSet::CellNeighbor p_peering_bit, int p_terrain_id) {
+	if (terrain_multi_peering_enabled) {
+		return terrain_multi_peering_bits[p_peering_bit].has(p_terrain_id);
+	}
+
+	return get_terrain_peering_bit(p_peering_bit) == p_terrain_id;
+}
+
 TileSet::TerrainsPattern TileData::get_terrains_pattern() const {
 	ERR_FAIL_NULL_V(tile_set, TileSet::TerrainsPattern());
 
@@ -6573,7 +6695,16 @@ TileSet::TerrainsPattern TileData::get_terrains_pattern() const {
 	output.set_terrain(terrain);
 	for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
 		if (tile_set->is_valid_terrain_peering_bit(terrain_set, TileSet::CellNeighbor(i))) {
-			output.set_terrain_peering_bit(TileSet::CellNeighbor(i), get_terrain_peering_bit(TileSet::CellNeighbor(i)));
+			Vector<int> terrain_bits = Vector<int>();
+			if (terrain_multi_peering_enabled) {
+				terrain_bits.append_array(get_terrain_multi_peering_bits(TileSet::CellNeighbor(i)));
+			}else {
+				if (get_terrain_peering_bit(TileSet::CellNeighbor(i)) != -1) {
+					terrain_bits.append(get_terrain_peering_bit(TileSet::CellNeighbor(i)));
+				}
+			}
+
+			output.set_terrain_peering_bits(TileSet::CellNeighbor(i), terrain_bits);
 		}
 	}
 	return output;
@@ -6858,7 +6989,19 @@ bool TileData::_set(const StringName &p_name, const Variant &p_value) {
 			}
 		}
 		return false;
-	} else if (components.size() == 1 && components[0].begins_with("custom_data_") && components[0].trim_prefix("custom_data_").is_valid_int()) {
+	}else if (components.size() == 2 && components[0] == "terrain_multi_peering_bits") {
+		// Terrains multi peering.
+		for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
+			TileSet::CellNeighbor bit = TileSet::CellNeighbor(i);
+			if (components[1] == TileSet::CELL_NEIGHBOR_ENUM_TO_TEXT[i]) {
+				set_terrain_multi_peering_bits(bit, p_value);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	else if (components.size() == 1 && components[0].begins_with("custom_data_") && components[0].trim_prefix("custom_data_").is_valid_int()) {
 		// Custom data layers.
 		int layer_index = components[0].trim_prefix("custom_data_").to_int();
 		ERR_FAIL_COND_V(layer_index < 0, false);
@@ -6970,6 +7113,17 @@ bool TileData::_get(const StringName &p_name, Variant &r_ret) const {
 			}
 			return false;
 		}
+
+		else if (components.size() == 2 && components[0] == "terrain_multi_peering_bits") {
+			// Terrains multi peering.
+			for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
+				if (components[1] == TileSet::CELL_NEIGHBOR_ENUM_TO_TEXT[i]) {
+					r_ret = terrain_multi_peering_bits[i];
+					return true;
+				}
+			}
+			return false;
+		}
 #ifndef NAVIGATION_2D_DISABLED
 		else if (components.size() == 2 && components[0].begins_with("navigation_layer_") && components[0].trim_prefix("navigation_layer_").is_valid_int()) {
 			// Occlusion layers.
@@ -7065,14 +7219,28 @@ void TileData::_get_property_list(List<PropertyInfo> *p_list) const {
 		// Terrain data
 		if (terrain_set >= 0) {
 			p_list->push_back(PropertyInfo(Variant::NIL, GNAME("Terrains", ""), PROPERTY_HINT_NONE, "", PROPERTY_USAGE_GROUP));
-			for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
-				TileSet::CellNeighbor bit = TileSet::CellNeighbor(i);
-				if (is_valid_terrain_peering_bit(bit)) {
-					property_info = PropertyInfo(Variant::INT, vformat("%s/%s", PNAME("terrains_peering_bit"), TileSet::CELL_NEIGHBOR_ENUM_TO_TEXT[i]));
-					if (get_terrain_peering_bit(bit) == -1) {
-						property_info.usage ^= PROPERTY_USAGE_STORAGE;
+
+			if (!terrain_multi_peering_enabled) {
+				for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
+					TileSet::CellNeighbor bit = TileSet::CellNeighbor(i);
+					if (is_valid_terrain_peering_bit(bit)) {
+						property_info = PropertyInfo(Variant::INT, vformat("%s/%s", PNAME("terrains_peering_bit"), TileSet::CELL_NEIGHBOR_ENUM_TO_TEXT[i]));
+						if (get_terrain_peering_bit(bit) == -1) {
+							property_info.usage ^= PROPERTY_USAGE_STORAGE;
+						}
+						p_list->push_back(property_info);
 					}
-					p_list->push_back(property_info);
+				}
+			}else {
+				for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
+					TileSet::CellNeighbor bit = TileSet::CellNeighbor(i);
+					if (is_valid_terrain_peering_bit(bit)) {
+						property_info = PropertyInfo(Variant::PACKED_INT32_ARRAY, vformat("%s/%s", PNAME("terrain_multi_peering_bits"), TileSet::CELL_NEIGHBOR_ENUM_TO_TEXT[i]));
+						if (get_terrain_multi_peering_bits(bit).size() == 0) {
+							property_info.usage ^= PROPERTY_USAGE_STORAGE;
+						}
+						p_list->push_back(property_info);
+					}
 				}
 			}
 		}
@@ -7162,6 +7330,9 @@ void TileData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_terrain_peering_bit", "peering_bit"), &TileData::get_terrain_peering_bit);
 	ClassDB::bind_method(D_METHOD("is_valid_terrain_peering_bit", "peering_bit"), &TileData::is_valid_terrain_peering_bit);
 
+	ClassDB::bind_method(D_METHOD("set_terrain_multi_peering_enabled", "p_enabled"), &TileData::set_terrain_multi_peering_enabled);
+	ClassDB::bind_method(D_METHOD("get_terrain_multi_peering_enabled"), &TileData::get_terrain_multi_peering_enabled);
+
 #ifndef NAVIGATION_2D_DISABLED
 	// Navigation
 	ClassDB::bind_method(D_METHOD("set_navigation_polygon", "layer_id", "navigation_polygon"), &TileData::set_navigation_polygon);
@@ -7192,6 +7363,7 @@ void TileData::_bind_methods() {
 	ADD_GROUP("Terrains", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "terrain_set"), "set_terrain_set", "get_terrain_set");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "terrain"), "set_terrain", "get_terrain");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "terrain_multi_peering_enabled"), "set_terrain_multi_peering_enabled", "get_terrain_multi_peering_enabled");
 
 	ADD_GROUP("Miscellaneous", "");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "probability"), "set_probability", "get_probability");

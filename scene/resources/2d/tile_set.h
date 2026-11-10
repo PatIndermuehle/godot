@@ -272,7 +272,7 @@ public:
 	class TerrainsPattern {
 		bool valid = false;
 		int terrain = -1;
-		int bits[TileSet::CELL_NEIGHBOR_MAX] = {};
+		Vector<int> bits[TileSet::CELL_NEIGHBOR_MAX] = {};
 		bool is_valid_bit[TileSet::CELL_NEIGHBOR_MAX] = {};
 
 		int not_empty_terrains_count = 0;
@@ -290,8 +290,10 @@ public:
 		void set_terrain(int p_terrain);
 		int get_terrain() const;
 
-		void set_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit, int p_terrain);
-		int get_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit) const;
+		void add_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit, int p_terrain);
+		void remove_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit, int p_terrain);
+		Vector<int> get_terrain_peering_bits(TileSet::CellNeighbor p_peering_bit) const;
+		void set_terrain_peering_bits(TileSet::CellNeighbor p_peering_bit, Vector<int> p_terrain_ids);
 
 		void from_array(Array p_terrains);
 		Array as_array() const;
@@ -558,7 +560,7 @@ public:
 
 	Vector<Point2> get_terrain_polygon(int p_terrain_set);
 	Vector<Point2> get_terrain_peering_bit_polygon(int p_terrain_set, TileSet::CellNeighbor p_bit);
-	void draw_terrains(CanvasItem *p_canvas_item, Transform2D p_transform, const TileData *p_tile_data);
+	void draw_terrains(CanvasItem *p_canvas_item, Transform2D p_transform, const TileData *p_tile_data, int p_selected_terrain);
 	Vector<Vector<Ref<Texture2D>>> generate_terrains_icons(Size2i p_size);
 
 	// Resource management
@@ -891,6 +893,9 @@ private:
 	int terrain_set = -1;
 	int terrain = -1;
 	int terrain_peering_bits[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+	bool terrain_multi_peering_enabled = false;
+	Vector<int> terrain_multi_peering_bits[16] = { {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} };
+
 
 #ifndef NAVIGATION_2D_DISABLED
 	// Navigation
@@ -1011,6 +1016,17 @@ public:
 	void set_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit, int p_terrain_id);
 	int get_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit) const;
 	bool is_valid_terrain_peering_bit(TileSet::CellNeighbor p_peering_bit) const;
+
+	void set_terrain_multi_peering_enabled(bool p_enabled);
+	bool get_terrain_multi_peering_enabled() const;
+
+	void set_terrain_multi_peering_bits(TileSet::CellNeighbor p_peering_bit, Vector<int> p_terrain_ids);
+	Vector<int> get_terrain_multi_peering_bits(TileSet::CellNeighbor p_peering_bit) const;
+
+	void add_terrain_multi_peering_bits(TileSet::CellNeighbor p_peering_bit, int p_terrain_id);
+	void remove_terrain_multi_peering_bits(TileSet::CellNeighbor p_peering_bit, int p_terrain_id);
+
+	bool contains_terrain_peering_bits(TileSet::CellNeighbor p_peering_bit, int p_terrain_id);
 
 	TileSet::TerrainsPattern get_terrains_pattern() const; // Not exposed.
 
