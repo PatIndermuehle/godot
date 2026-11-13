@@ -7231,7 +7231,7 @@ void TileData::_get_property_list(List<PropertyInfo> *p_list) const {
 						p_list->push_back(property_info);
 					}
 				}
-			}else {
+			} else {
 				for (int i = 0; i < TileSet::CELL_NEIGHBOR_MAX; i++) {
 					TileSet::CellNeighbor bit = TileSet::CellNeighbor(i);
 					if (is_valid_terrain_peering_bit(bit)) {
